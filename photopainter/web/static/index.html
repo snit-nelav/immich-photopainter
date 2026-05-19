@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>photopainter</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-row">
+      <div>
+        <h1>📷 photopainter</h1>
+        <p class="muted" data-i18n="header.subtitle">e-paper photo frame</p>
+      </div>
+      <div class="lang-switch">
+        <label data-i18n="language">Language</label>
+        <select id="lang-select"><option value="en">English</option><option value="fr">Français</option></select>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2 data-i18n="status.title">Last cycle status</h2>
+      <div id="status-body" class="muted" data-i18n="status.loading">loading…</div>
+      <div class="preview-wrapper"><img id="preview" src="/api/preview" alt="preview" loading="lazy"></div>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="actions.title">Actions</h2>
+      <button id="btn-refresh" class="primary" data-i18n="actions.refresh">↻ Refresh now</button>
+      <button id="btn-clear" class="danger" data-i18n="actions.clear">⚠ Clear screen</button>
+      <span id="action-feedback" class="muted"></span>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="source.title">Source: Immich</h2>
+      <label><span data-i18n="source.url">Server URL</span>
+        <input type="text" id="immich-url" placeholder="https://photo.example.com">
+      </label>
+
+      <label><span data-i18n="source.api_key">API key</span>
+        <input type="text" id="immich-api-key">
+      </label>
+      <details class="help">
+        <summary data-i18n="source.api_key_tuto.summary">How to create an API key in Immich?</summary>
+        <ol>
+          <li data-i18n="source.api_key_tuto.step1">In Immich, click your avatar (top right) → Account Settings.</li>
+          <li data-i18n="source.api_key_tuto.step2">Tab "API Keys" → "New API Key", name it "photopainter".</li>
+          <li data-i18n="source.api_key_tuto.step3">Check only these permissions:</li>
+          <ul>
+            <li><code>album.read</code></li>
+            <li><code>asset.read</code></li>
+            <li><code>asset.download</code></li>
+          </ul>
+          <li data-i18n="source.api_key_tuto.step3_note">No write/admin permission needed.</li>
+          <li data-i18n="source.api_key_tuto.step4">Click Create, then copy the key (shown once).</li>
+          <li data-i18n="source.api_key_tuto.step5">Paste it above and save.</li>
+        </ol>
+      </details>
+
+      <label><span data-i18n="source.album">Album to display</span>
+        <select id="immich-album"><option value="" data-i18n="source.album_placeholder">— select an album —</option></select>
+        <button id="btn-reload-albums" type="button" class="link" data-i18n="source.reload_albums">↻ reload list</button>
+      </label>
+      <p id="albums-feedback" class="muted small"></p>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="frequency.title">Refresh frequency</h2>
+      <div id="interval-buttons" class="pills"></div>
+      <p class="muted" id="next-refresh" data-i18n="frequency.next">next refresh: —</p>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="rotation.title">Frame orientation</h2>
+      <p class="muted small" data-i18n="rotation.help">0° / 180° = portrait, 90° / 270° = landscape. Affects the logical canvas (480×800 or 800×480) and how photos get cropped.</p>
+      <div id="rotation-buttons" class="pills"></div>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="display.title">Display mode</h2>
+
+      <fieldset>
+        <legend data-i18n="display.compatible">Photo with same orientation as frame</legend>
+        <div class="radios" data-target="compatible_mode">
+          <label><input type="radio" name="compatible_mode" value="fill"><span><span data-i18n="display.fill">Fill frame</span> <em class="muted" data-i18n="display.fill_desc">— crop, loses borders</em></span></label>
+          <label><input type="radio" name="compatible_mode" value="square"><span><span data-i18n="display.square">Centered square</span> <em class="muted" data-i18n="display.square_desc">— plain bands around</em></span></label>
+          <label><input type="radio" name="compatible_mode" value="original"><span><span data-i18n="display.original">Original</span> <em class="muted" data-i18n="display.original_desc">— full photo, plain bands</em></span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="display.inverted">Photo with opposite orientation</legend>
+        <div class="radios" data-target="inverted_mode">
+          <label><input type="radio" name="inverted_mode" value="fill"><span><span data-i18n="display.fill">Fill frame</span> <em class="muted" data-i18n="display.fill_inv_desc">— heavy crop, loses much of the photo</em></span></label>
+          <label><input type="radio" name="inverted_mode" value="square"><span><span data-i18n="display.square">Centered square</span> <em class="muted" data-i18n="display.square_desc">— plain bands around</em></span></label>
+          <label><input type="radio" name="inverted_mode" value="original"><span><span data-i18n="display.original">Original</span> <em class="muted" data-i18n="display.original_desc">— full photo, plain bands</em></span></label>
+        </div>
+      </fieldset>
+
+      <label class="bg-color"><span data-i18n="display.bg_color">Bands color</span> <span class="muted" data-i18n="display.bg_note">(Square and Original modes)</span>
+        <div class="pills" id="bg-buttons">
+          <button type="button" data-value="white" data-i18n="display.white">White</button>
+          <button type="button" data-value="black" data-i18n="display.black">Black</button>
+        </div>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="cache.title">Local cache</h2>
+      <p class="muted small" data-i18n="cache.intro">Downloaded photos are cached. If Immich is unavailable, the frame uses the cache. Old entries are auto-purged every night at midnight.</p>
+      <label><span data-i18n="cache.max_size">Max size:</span> <b id="cache-size-val">2.0</b> GB
+        <input type="range" id="cache-size" min="1" max="10" step="0.5" value="2">
+      </label>
+      <p id="cache-info" class="muted small">—</p>
+    </section>
+  </main>
+
+  <div id="save-bar">
+    <button id="btn-save" class="big" data-i18n="save" disabled>💾 Save configuration</button>
+    <span id="save-feedback" class="muted"></span>
+  </div>
+
+  <footer><p class="muted">v0.4.0 · LAN-only</p></footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

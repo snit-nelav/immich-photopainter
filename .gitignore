@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+.lgd-*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local runtime artifacts (live outside the repo on the Pi; ignored if devving locally)
+*.log
+preview*.png
+last_status.json
+history.json
+refresh.lock
+
+# Anything that might contain real credentials — never commit
+config.yaml
+.env
+.env.local

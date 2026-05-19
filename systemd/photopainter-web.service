@@ -1,0 +1,20 @@
+[Unit]
+Description=PhotoPainter HTML backend (Flask + gunicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=photopainter
+Group=photopainter
+WorkingDirectory=/opt/photopainter
+ExecStart=/usr/bin/gunicorn -w 1 -b 0.0.0.0:80 --access-logfile /var/log/photopainter/web-access.log --error-logfile /var/log/photopainter/web-error.log photopainter.web.app:app
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,53 @@
+# Copy this file to /etc/photopainter/config.yaml and fill in your values.
+# Most users won't need to edit this manually — the web UI (running on port 80
+# of the Pi) writes the same fields atomically.
+
+sources:
+  active: "immich"
+
+  immich:
+    # Immich server URL (LAN — no Tailscale / public exposure needed)
+    base_url: "http://192.168.1.X:2283"
+
+    # Personal API key — see the UI's "How to create an API key" tutorial.
+    # Required scopes: album.read, asset.read, asset.download
+    api_key: ""
+
+    # Target album UUID (visible in the Immich URL when you open the album).
+    # The UI also exposes a dropdown that fills this in automatically.
+    album_id: ""
+
+    timeout_seconds: 30
+
+display:
+  canvas_width: 480              # native portrait canvas (rotation 0/180)
+  canvas_height: 800
+  rotation: 0                    # 0, 90, 180, 270
+  compatible_mode: "fill"        # photos with same orientation as frame: fill | square | original
+  inverted_mode: "original"      # photos with opposite orientation: fill | square | original
+  background_color: "white"      # white | black — bands color for square / original modes
+
+scheduling:
+  active_hours_start: 6          # inclusive
+  active_hours_end: 24           # exclusive
+  refresh_interval_minutes: 15   # ∈ {5, 10, 15, 20, 30, 45, 60}
+
+history:
+  max_size: 20
+  path: "/var/lib/photopainter/history.json"
+
+cache:
+  path: "/var/cache/photopainter"
+  max_size_gb: 2.0               # 1.0 – 10.0
+
+logging:
+  level: "INFO"
+  path: "/var/log/photopainter/photopainter.log"
+
+web:
+  host: "0.0.0.0"
+  port: 80
+  enabled: true
+
+ui:
+  language: "en"                 # en | fr — persisted by the web UI
