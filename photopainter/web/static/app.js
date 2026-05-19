@@ -252,7 +252,7 @@ function updateDirty() {
 }
 
 function populateHourSelect(id) {
-  const sel = ;
+  const sel = $("#" + id);
   if (sel.options.length) return;
   for (let h = 0; h < 24; h++) {
     const o = document.createElement("option");
