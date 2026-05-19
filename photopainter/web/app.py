@@ -160,7 +160,7 @@ def create_app() -> Flask:
             r = requests.get(
                 f"{ic.base_url}/api/albums",
                 headers={"x-api-key": ic.api_key},
-                timeout=10,
+                timeout=5,
             )
         except requests.RequestException as exc:
             return jsonify({"error": f"Immich call failed: {exc}", "albums": []}), 502
