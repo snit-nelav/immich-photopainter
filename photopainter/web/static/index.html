@@ -74,6 +74,23 @@
     </section>
 
     <section class="card">
+      <h2 data-i18n="quiet.title">Quiet hours</h2>
+      <p class="muted small" data-i18n="quiet.help">Pause the refresh during quiet hours (e.g. at night). Set start &gt; end to wrap midnight (e.g. 22 → 6 pauses from 22:00 to 06:00).</p>
+      <label class="toggle-row">
+        <input type="checkbox" id="pause-enabled">
+        <span data-i18n="quiet.toggle">Enable quiet hours</span>
+      </label>
+      <div id="quiet-hours-fields">
+        <label><span data-i18n="quiet.start">Pause start</span>
+          <select id="pause-start"></select>
+        </label>
+        <label><span data-i18n="quiet.end">Pause end</span>
+          <select id="pause-end"></select>
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
       <h2 data-i18n="rotation.title">Frame orientation</h2>
       <p class="muted small" data-i18n="rotation.help">0° / 180° = portrait, 90° / 270° = landscape. Affects the logical canvas (480×800 or 800×480) and how photos get cropped.</p>
       <div id="rotation-buttons" class="pills"></div>

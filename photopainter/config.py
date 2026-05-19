@@ -50,15 +50,23 @@ class DisplayConfig(BaseModel):
 
 
 class SchedulingConfig(BaseModel):
-    active_hours_start: int = 6
-    active_hours_end: int = 24
     refresh_interval_minutes: int = 15
+    pause_enabled: bool = True
+    pause_start_hour: int = 0     # inclusive, 0-23
+    pause_end_hour: int = 6       # exclusive, 0-23
 
     @field_validator("refresh_interval_minutes")
     @classmethod
     def validate_interval(cls, v: int) -> int:
         if v not in ALLOWED_INTERVALS:
             raise ValueError(f"refresh_interval_minutes must be one of {ALLOWED_INTERVALS}")
+        return v
+
+    @field_validator("pause_start_hour", "pause_end_hour")
+    @classmethod
+    def validate_hour(cls, v: int) -> int:
+        if not (0 <= v <= 23):
+            raise ValueError("hour must be 0-23")
         return v
 
 

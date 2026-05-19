@@ -28,9 +28,12 @@ display:
   background_color: "white"      # white | black — bands color for square / original modes
 
 scheduling:
-  active_hours_start: 6          # inclusive
-  active_hours_end: 24           # exclusive
   refresh_interval_minutes: 15   # ∈ {5, 10, 15, 20, 30, 45, 60}
+  # Quiet hours = a window during which the frame stops refreshing (e.g. at night).
+  # Set start > end to wrap midnight (e.g. start=22, end=6 pauses 22:00 -> 06:00).
+  pause_enabled: true
+  pause_start_hour: 0            # 0-23
+  pause_end_hour: 6              # 0-23 (exclusive)
 
 history:
   max_size: 20

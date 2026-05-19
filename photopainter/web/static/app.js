@@ -30,6 +30,11 @@ const I18N = {
     "source.reload_albums": "↻ reload list",
     "frequency.title": "Refresh frequency",
     "frequency.next": "next refresh: —",
+    "quiet.title": "Quiet hours",
+    "quiet.help": "Pause the refresh during quiet hours (e.g. at night). Set start > end to wrap midnight (e.g. 22 → 6 pauses from 22:00 to 06:00).",
+    "quiet.toggle": "Enable quiet hours",
+    "quiet.start": "Pause start",
+    "quiet.end": "Pause end",
     "rotation.title": "Frame orientation",
     "rotation.help": "0° / 180° = portrait, 90° / 270° = landscape. Affects the logical canvas (480×800 or 800×480) and how photos get cropped.",
     "display.title": "Display mode",
@@ -90,6 +95,11 @@ const I18N = {
     "source.reload_albums": "↻ recharger la liste",
     "frequency.title": "Fréquence de refresh",
     "frequency.next": "prochain refresh : —",
+    "quiet.title": "Pause nocturne",
+    "quiet.help": "Met en pause le refresh pendant les heures choisies (ex. la nuit). Mettre début > fin pour traverser minuit (ex. 22 → 6 met en pause de 22:00 à 06:00).",
+    "quiet.toggle": "Activer la pause",
+    "quiet.start": "Début",
+    "quiet.end": "Fin",
     "rotation.title": "Orientation du cadre",
     "rotation.help": "0° / 180° = portrait, 90° / 270° = paysage. Modifie le canvas logique (480×800 ou 800×480) et comment les photos sont croppées.",
     "display.title": "Mode d'affichage",
@@ -220,7 +230,12 @@ function collectPatch() {
       inverted_mode: getRadio("inverted_mode") || "original",
       background_color: currentBg,
     },
-    scheduling: { refresh_interval_minutes: currentInterval },
+    scheduling: {
+      refresh_interval_minutes: currentInterval,
+      pause_enabled: $("#pause-enabled").checked,
+      pause_start_hour: parseInt($("#pause-start").value, 10),
+      pause_end_hour: parseInt($("#pause-end").value, 10),
+    },
     cache: { max_size_gb: parseFloat($("#cache-size").value) },
     ui: { language: currentLang },
   };
@@ -234,6 +249,23 @@ function updateDirty() {
   const dirty = snapshotForm() !== initialSnapshot;
   btn.disabled = !dirty;
   btn.classList.toggle("dirty", dirty);
+}
+
+function populateHourSelect(id) {
+  const sel = ;
+  if (sel.options.length) return;
+  for (let h = 0; h < 24; h++) {
+    const o = document.createElement("option");
+    o.value = String(h);
+    o.textContent = String(h).padStart(2, "0") + ":00";
+    sel.appendChild(o);
+  }
+}
+function refreshQuietFieldsState() {
+  const on = $("#pause-enabled").checked;
+  $("#quiet-hours-fields").style.opacity = on ? "1" : "0.4";
+  $("#pause-start").disabled = !on;
+  $("#pause-end").disabled = !on;
 }
 
 function bindDirtyInputs() {
@@ -287,6 +319,17 @@ async function loadAll() {
   currentRotation = d.rotation;
   renderPills("interval-buttons", meta.allowed_intervals || [5,10,15,20,30,45,60], currentInterval, " min", v => currentInterval = v);
   renderPills("rotation-buttons", meta.allowed_rotations || [0,90,180,270], currentRotation, "°", v => currentRotation = v);
+
+  // Quiet hours
+  populateHourSelect("pause-start");
+  populateHourSelect("pause-end");
+  $("#pause-enabled").checked = sch.pause_enabled !== false;
+  $("#pause-start").value = String(sch.pause_start_hour ?? 0);
+  $("#pause-end").value = String(sch.pause_end_hour ?? 6);
+  $("#pause-enabled").onchange = () => { refreshQuietFieldsState(); updateDirty(); };
+  $("#pause-start").onchange = updateDirty;
+  $("#pause-end").onchange = updateDirty;
+  refreshQuietFieldsState();
 
   setRadio("compatible_mode", d.compatible_mode);
   setRadio("inverted_mode", d.inverted_mode);

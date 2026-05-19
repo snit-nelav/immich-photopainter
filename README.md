@@ -15,7 +15,7 @@ Everything — album, refresh frequency, orientation, display mode, language —
 ## ✨ Features
 
 - 🎲 Random pick from any Immich album, refreshed every **5–60 min** (configurable).
-- 🌙 Active hours (default 06:00 → 24:00) — silent at night, last photo stays on screen for free (e-paper).
+- 🌙 Configurable **quiet hours** (toggle + start/end hour, wraps midnight) — silent at night, last photo stays on screen for free (e-paper).
 - 🎨 Per-orientation display modes : **fill** (crop), **square** (1:1 centered), or **original** (full photo with bands). Bands color: white or black.
 - 🔄 Rotation 0° / 90° / 180° / 270° — hang the frame portrait, landscape, upside-down…
 - 🌈 Floyd-Steinberg dithering against the Spectra 6 native palette.

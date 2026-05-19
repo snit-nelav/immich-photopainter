@@ -45,11 +45,16 @@ def _categorize_change(old: dict, new: dict) -> str:
     """Returns 'new_photo', 'redraw', or 'none'."""
     old_im = old.get("sources", {}).get("immich", {})
     new_im = new.get("sources", {}).get("immich", {})
+    old_sch = old.get("scheduling", {})
+    new_sch = new.get("scheduling", {})
     if (old.get("sources", {}).get("active") != new.get("sources", {}).get("active")
         or old_im.get("base_url") != new_im.get("base_url")
         or old_im.get("api_key") != new_im.get("api_key")
         or old_im.get("album_id") != new_im.get("album_id")
-        or old.get("scheduling", {}).get("refresh_interval_minutes") != new.get("scheduling", {}).get("refresh_interval_minutes")):
+        or old_sch.get("refresh_interval_minutes") != new_sch.get("refresh_interval_minutes")
+        or old_sch.get("pause_enabled") != new_sch.get("pause_enabled")
+        or old_sch.get("pause_start_hour") != new_sch.get("pause_start_hour")
+        or old_sch.get("pause_end_hour") != new_sch.get("pause_end_hour")):
         return "new_photo"
 
     old_d = old.get("display", {})
