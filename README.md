@@ -1,5 +1,9 @@
 # 📷 Immich photopainter
 
+<p align="center">
+  <img src="docs/demo.jpg" alt="photopainter in the wild" width="450">
+</p>
+
 > 🖼️ A plug-and-play e-paper photo frame for the **Waveshare PhotoPainter ACCE** kit (7.3″ Spectra 6 color e-paper + Raspberry Pi Zero 2 W) that pulls random photos from one of your **Immich** albums on the LAN.
 
 Everything — album, refresh frequency, orientation, display mode, language — is set from a **web UI hosted on the Pi**. No SSH, no YAML files to edit.
