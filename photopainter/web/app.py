@@ -28,7 +28,9 @@ logger = logging.getLogger(__name__)
 CONFIG_PATH = Path("/etc/photopainter/config.yaml")
 LAST_STATUS_PATH = Path("/var/lib/photopainter/last_status.json")
 HISTORY_PATH = Path("/var/lib/photopainter/history.json")
-PREVIEW_PATH = Path("/tmp/photopainter-preview.png")
+# Preview file lives on the persistent volume so it survives a reboot
+# (was previously /tmp which is tmpfs and wiped on Trixie).
+PREVIEW_PATH = Path("/var/lib/photopainter/preview.png")
 REFRESH_SH = "/opt/photopainter/refresh.sh"
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -65,17 +67,37 @@ def _categorize_change(old: dict, new: dict) -> str:
     return "none"
 
 
-def _spawn_refresh(extra_args: list[str]) -> int | None:
+def _spawn_refresh(extra_args: list[str]) -> tuple[int | None, str | None]:
+    """Spawn refresh.sh in the background. Returns (pid, early_error).
+
+    We give the subprocess a short grace period (0.4s) before returning, just
+    enough to catch early crashes like a missing dependency or a permission
+    error on the lock dir. The subprocess keeps running afterwards.
+    """
+    import time
     try:
         proc = subprocess.Popen(
             [REFRESH_SH] + extra_args,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             start_new_session=True,
         )
-        return proc.pid
     except FileNotFoundError:
-        return None
+        return None, "refresh.sh not found"
+
+    time.sleep(0.4)
+    rc = proc.poll()
+    if rc is not None and rc != 0:
+        # The subprocess already exited with an error code.
+        out_bytes = b""
+        try:
+            if proc.stdout is not None:
+                out_bytes = proc.stdout.read(2048) or b""
+        except Exception:
+            pass
+        tail = out_bytes.decode("utf-8", errors="replace").strip().splitlines()[-3:]
+        return proc.pid, f"exit {rc}: {' | '.join(tail)[:300]}"
+    return proc.pid, None
 
 
 def create_app() -> Flask:
@@ -133,16 +155,17 @@ def create_app() -> Flask:
 
         category = _categorize_change(old_snapshot, merged)
         triggered_pid: int | None = None
+        trigger_error: str | None = None
         if category == "new_photo":
-            triggered_pid = _spawn_refresh(["--ignore-schedule"])
+            triggered_pid, trigger_error = _spawn_refresh(["--ignore-schedule"])
         elif category == "redraw":
             last = read_last_status(LAST_STATUS_PATH)
             if last and last.get("asset_id"):
-                triggered_pid = _spawn_refresh(["--force-asset", last["asset_id"], "--ignore-schedule"])
+                triggered_pid, trigger_error = _spawn_refresh(["--force-asset", last["asset_id"], "--ignore-schedule"])
             else:
-                triggered_pid = _spawn_refresh(["--ignore-schedule"])
+                triggered_pid, trigger_error = _spawn_refresh(["--ignore-schedule"])
 
-        return jsonify({"status": "ok", "refresh": category, "pid": triggered_pid})
+        return jsonify({"status": "ok", "refresh": category, "pid": triggered_pid, "trigger_error": trigger_error})
 
     @app.get("/api/sources")
     def list_sources():
@@ -192,16 +215,20 @@ def create_app() -> Flask:
 
     @app.post("/api/refresh")
     def trigger_refresh():
-        pid = _spawn_refresh(["--ignore-schedule"])
+        pid, err = _spawn_refresh(["--ignore-schedule"])
         if pid is None:
-            return jsonify({"error": "refresh.sh not found"}), 500
+            return jsonify({"error": err or "refresh.sh not found"}), 500
+        if err:
+            return jsonify({"status": "failed", "pid": pid, "error": err}), 500
         return jsonify({"status": "started", "pid": pid}), 202
 
     @app.post("/api/clear")
     def trigger_clear():
-        pid = _spawn_refresh(["--clear"])
+        pid, err = _spawn_refresh(["--clear"])
         if pid is None:
-            return jsonify({"error": "refresh.sh not found"}), 500
+            return jsonify({"error": err or "refresh.sh not found"}), 500
+        if err:
+            return jsonify({"status": "failed", "pid": pid, "error": err}), 500
         return jsonify({"status": "started", "pid": pid}), 202
 
     @app.get("/api/status")

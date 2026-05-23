@@ -80,6 +80,20 @@ fieldset legend { font-size: 0.85rem; color: var(--muted); padding: 0 0.5rem; }
 
 .preview-wrapper { margin-top: 0.75rem; display: flex; justify-content: center; }
 #preview { max-width: 240px; max-height: 380px; border: 1px solid var(--border); border-radius: 6px; display: block; }
+.preview-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 240px;
+  height: 380px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 1rem;
+  background: #faf9f4;
+}
 
 .header-row { display: flex; justify-content: space-between; align-items: center; }
 .lang-switch { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }

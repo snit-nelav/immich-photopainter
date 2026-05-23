@@ -30,9 +30,11 @@ from photopainter.sources.immich import ImmichSource
 from photopainter.sources.cached import CachingSource
 from photopainter.cache import AssetCache, gb_to_bytes
 
-LOCK_PATH = Path("/run/photopainter/refresh.lock")
+# Paths live on the persistent /var/lib volume so a reboot does NOT wipe the
+# refresh lock or the preview file (both /run and /tmp are tmpfs on Trixie).
+LOCK_PATH = Path("/var/lib/photopainter/refresh.lock")
 LAST_STATUS_PATH = Path("/var/lib/photopainter/last_status.json")
-PREVIEW_PATH = Path("/tmp/photopainter-preview.png")
+PREVIEW_PATH = Path("/var/lib/photopainter/preview.png")
 CONFIG_PATH = Path(os.environ.get("PHOTOPAINTER_CONFIG", "/etc/photopainter/config.yaml"))
 
 MAX_PROCESS_RETRIES = 3
@@ -275,6 +277,15 @@ def main(argv: list[str] | None = None) -> int:
     except BlockingIOError:
         log.info("another refresh is in progress (lock held), exit 0")
         return 0
+    except (PermissionError, OSError) as exc:
+        # Should never happen now that the lock lives on /var/lib, but if it
+        # does we want a visible trace instead of a silent crash.
+        log.error("could not acquire lock: %s", exc)
+        try:
+            write_last_status(LAST_STATUS_PATH, "", {}, f"lock_failed: {exc}")
+        except Exception:
+            pass
+        return 1
 
     try:
         if args.clear:
@@ -305,5 +316,27 @@ def main(argv: list[str] | None = None) -> int:
             pass
 
 
+def _record_crash(exc: BaseException) -> None:
+    """Last-ditch status write so an unexpected crash still shows up in /api/status."""
+    try:
+        import traceback as _tb
+        write_last_status(LAST_STATUS_PATH, "", {},
+                          f"crash: {exc.__class__.__name__}: {exc}")
+        # Keep a tail of the traceback alongside the regular log for debug.
+        try:
+            log = logging.getLogger("photopainter.crash")
+            log.error("uncaught: %s", _tb.format_exc())
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except SystemExit:
+        raise
+    except BaseException as exc:
+        _record_crash(exc)
+        sys.exit(1)

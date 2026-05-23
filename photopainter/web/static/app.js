@@ -12,6 +12,7 @@ const I18N = {
     "status.never_run": "never run",
     "status.corrupted": "last_status corrupted",
     "status.fallback": "(degraded mode, cache)",
+    "status.no_preview": "No preview yet — waiting for the next refresh.",
     "actions.title": "Actions",
     "actions.refresh": "↻ Refresh now",
     "actions.clear": "⚠ Clear screen",
@@ -77,6 +78,7 @@ const I18N = {
     "status.never_run": "jamais exécuté",
     "status.corrupted": "last_status corrompu",
     "status.fallback": "(mode dégradé, cache)",
+    "status.no_preview": "Pas encore d'aperçu — en attente du prochain refresh.",
     "actions.title": "Actions",
     "actions.refresh": "↻ Refresh maintenant",
     "actions.clear": "⚠ Clear screen",
@@ -342,10 +344,30 @@ async function loadAll() {
   renderStatus(await jget("/api/status"));
   loadCacheInfo();
   await loadAlbums();
-  $("#preview").src = "/api/preview?t=" + Date.now();
+  showPreview();
 
   initialSnapshot = snapshotForm();
   updateDirty();
+}
+
+async function showPreview() {
+  const img = $("#preview"), empty = $("#preview-empty");
+  try {
+    const r = await fetch("/api/preview?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) throw new Error("preview " + r.status);
+    const blob = await r.blob();
+    // Revoke any previous objectURL so we don't leak memory across reloads.
+    if (img.dataset.blobUrl) URL.revokeObjectURL(img.dataset.blobUrl);
+    const url = URL.createObjectURL(blob);
+    img.dataset.blobUrl = url;
+    img.src = url;
+    img.style.display = "block";
+    empty.style.display = "none";
+  } catch (e) {
+    img.style.display = "none";
+    empty.style.display = "flex";
+    empty.textContent = t("status.no_preview");
+  }
 }
 
 $("#btn-save").onclick = async () => {

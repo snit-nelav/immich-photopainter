@@ -24,7 +24,10 @@
     <section class="card">
       <h2 data-i18n="status.title">Last cycle status</h2>
       <div id="status-body" class="muted" data-i18n="status.loading">loading…</div>
-      <div class="preview-wrapper"><img id="preview" src="/api/preview" alt="preview" loading="lazy"></div>
+      <div class="preview-wrapper">
+        <img id="preview" alt="preview" style="display:none">
+        <div id="preview-empty" class="preview-empty" data-i18n="status.no_preview">No preview yet — waiting for the next refresh.</div>
+      </div>
     </section>
 
     <section class="card">
@@ -140,7 +143,7 @@
     <span id="save-feedback" class="muted"></span>
   </div>
 
-  <footer><p class="muted">v0.4.0 · LAN-only</p></footer>
+  <footer><p class="muted">v0.5.0 · LAN-only</p></footer>
 
   <script src="/static/app.js"></script>
 </body>
