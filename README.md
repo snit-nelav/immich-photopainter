@@ -83,16 +83,31 @@ The install script takes care of everything (drivers, the [PWR_PIN patch](#-pitf
 
 ### 5️⃣ Configure from the web UI
 
-Open **`http://<your-host>.local/`** (or `http://<pi-ip>/`) on any device on your LAN. Fill in:
+Open **`http://<your-host>.local/`** (or `http://<pi-ip>/`) on any device on your LAN. The page is bilingual (🇬🇧 / 🇫🇷, switcher top-right). Fill in, top to bottom:
 
+**Source — required**
 1. 🌐 **Immich URL** (e.g. `https://photos.example.com`).
-2. 🔑 **API key** — a one-click tutorial in the UI tells you which 3 permissions to check.
+2. 🔑 **API key** — a one-click tutorial in the UI tells you which 3 Immich permissions to check (`album.read`, `asset.read`, `asset.download`).
 3. 📁 **Album** — once URL + key are saved, the dropdown auto-fills with your albums.
-4. ⚙️ **Frequency, orientation, display mode** to your liking.
 
-Hit **💾 Save**. A first photo appears on the panel in ~25 seconds. 🎉
+**Cadence — when does it refresh**
+4. ⏱️ **Refresh frequency** — `5 / 10 / 15 / 20 / 30 / 45 / 60 min`.
+5. 🌙 **Quiet hours** — toggle on/off + start/end hour, wraps midnight (e.g. `22h → 6h`).
 
-That's it — the frame refreshes on its own from now on.
+**Layout — how each photo fits the frame**
+6. 🔄 **Frame orientation** (`0° / 90° / 180° / 270°`) — match the way you hang it.
+7. 🎨 **Display mode** for photos that match the frame's orientation **and** for those that don't (`fill`, `square`, or `original`), plus the **bands color** (white / black) for square / original.
+
+**Look — how each photo is rendered**
+8. 🎚️ **Image enhancement** sliders (brightness / saturation / sharpness, range `0.0 – 2.0`, `1.0` = identity). The **👁 Live preview** button pushes the current photo to the panel with the new values so you can iterate without leaving the page.
+
+**Storage & ops**
+9. 💾 **Local cache** size (`1 – 10 GB`) + a manual **🗑 Clear cache** button.
+10. 📋 **Logs** (collapsible) — last events, with Load more / Clear buttons. Useful when you need to ask "what happened?".
+
+Hit **💾 Save** (sticky bottom-right bar — goes red when there are unsaved changes). A first photo appears on the panel in ~25 seconds. 🎉
+
+That's it — the frame refreshes on its own from now on. If something breaks, a small **🚨 error badge** appears in the bottom-left of the photo (wifi-off icon for radio problems, alert-triangle for everything else); it vanishes on its own as soon as a cycle succeeds again.
 
 ---
 
