@@ -53,6 +53,20 @@ class AssetCache:
     def file_count(self) -> int:
         return sum(1 for _ in self.path.glob("*.bin"))
 
+    def clear_all(self) -> tuple[int, int]:
+        """Remove every cached asset. Returns (files_removed, bytes_freed)."""
+        removed = 0
+        freed = 0
+        for f in self.path.glob("*.bin"):
+            try:
+                size = f.stat().st_size
+                f.unlink()
+                removed += 1
+                freed += size
+            except OSError as exc:
+                logger.warning("cache clear: failed on %s (%s)", f.name, exc)
+        return (removed, freed)
+
     def purge_excess(self) -> tuple[int, int]:
         """Delete the oldest files (by mtime) until total size <= max_size_bytes.
         Returns (files_removed, bytes_freed)."""

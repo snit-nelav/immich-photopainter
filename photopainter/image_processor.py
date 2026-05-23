@@ -15,7 +15,7 @@ import io
 import logging
 from typing import Literal
 
-from PIL import Image, ImageEnhance, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageOps
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +97,85 @@ def _apply_mode(img: Image.Image, canvas_w: int, canvas_h: int, mode: DisplayMod
     raise ValueError(f"unknown display mode: {mode}")
 
 
+# Feather Icons (https://feathericons.com, MIT license).
+# Stroke color forced to pure red so it maps cleanly onto the Spectra 6 palette.
+_SVG_WIFI_OFF = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" '
+    'viewBox="0 0 24 24" fill="none" stroke="#FF0000" stroke-width="2.5" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    '<line x1="1" y1="1" x2="23" y2="23"/>'
+    '<path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>'
+    '<path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>'
+    '<path d="M10.71 5.05A16 16 0 0 1 22.58 9"/>'
+    '<path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>'
+    '<path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>'
+    '<line x1="12" y1="20" x2="12.01" y2="20"/>'
+    '</svg>'
+)
+_SVG_ALERT = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" '
+    'viewBox="0 0 24 24" fill="none" stroke="#FF0000" stroke-width="2.5" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>'
+    '<line x1="12" y1="9" x2="12" y2="13"/>'
+    '<line x1="12" y1="17" x2="12.01" y2="17"/>'
+    '</svg>'
+)
+
+
+def _render_svg(svg: str, size: int) -> Image.Image:
+    """Rasterize an SVG string to a PIL RGBA image of (size, size)."""
+    import cairosvg
+    png_bytes = cairosvg.svg2png(
+        bytestring=svg.encode("utf-8"),
+        output_width=size,
+        output_height=size,
+    )
+    return Image.open(io.BytesIO(png_bytes)).convert("RGBA")
+
+
+# Per-kind tuning (icon size + visual centering offset from geometric center).
+# Values found by trial on the 7.3" panel (5 px/mm). The Feather pictograms
+# are not perfectly balanced inside their 24×24 viewBox so each one has its
+# own small (off_x, off_y) correction.
+_BADGE_KIND = {
+    "wifi":  {"svg": "WIFI_OFF", "icon": 16, "off_x": 1, "off_y": 2},
+    "alert": {"svg": "ALERT",    "icon": 16, "off_x": 1, "off_y": 0},
+}
+
+
+def _draw_error_badge(img: Image.Image, kind: str = "wifi") -> None:
+    """Draw an error badge in the bottom-left corner of the canvas.
+
+    33 px white disc (≈ 6.6 mm at 5 px/mm) with a thin black border and a red
+    Feather icon inside. The icon is selected by ``kind``:
+      - "wifi"  -> wifi-off
+      - "alert" -> alert-triangle
+
+    Drawn after Floyd-Steinberg dithering so the disc stays solid white.
+    """
+    BADGE = 33
+    MARGIN = 16
+    x0 = MARGIN
+    y0 = img.height - MARGIN - BADGE
+
+    # White disc with thin black border.
+    ImageDraw.Draw(img).ellipse(
+        (x0, y0, x0 + BADGE, y0 + BADGE),
+        fill=(255, 255, 255), outline=(0, 0, 0), width=2,
+    )
+
+    cfg = _BADGE_KIND.get(kind, _BADGE_KIND["wifi"])
+    svg = _SVG_ALERT if cfg["svg"] == "ALERT" else _SVG_WIFI_OFF
+    icon = _render_svg(svg, cfg["icon"])
+    pad_x = (BADGE - cfg["icon"]) // 2 + cfg["off_x"]
+    pad_y = (BADGE - cfg["icon"]) // 2 + cfg["off_y"]
+    # Threshold the alpha to a binary mask so the icon edges stay crisp on the
+    # Spectra 6 palette (no transparent gray that would dither to noise).
+    alpha = icon.split()[3].point(lambda v: 255 if v > 128 else 0)
+    img.paste(icon.convert("RGB"), (x0 + pad_x, y0 + pad_y), mask=alpha)
+
+
 def _apply_enhancements(img: Image.Image, brightness: float, saturation: float, sharpness: float) -> Image.Image:
     """Apply user-controlled image enhancements before quantization.
     A factor of 1.0 is a no-op so the default path is unchanged."""
@@ -120,6 +199,8 @@ def process(
     brightness: float = 1.0,
     saturation: float = 1.0,
     sharpness: float = 1.0,
+    show_error_badge: bool = False,
+    error_badge_kind: str = "wifi",
 ) -> Image.Image:
     """Return an RGB PIL image (canvas-shaped) dithered against the E6 palette."""
     img = Image.open(io.BytesIO(raw_bytes))
@@ -135,4 +216,7 @@ def process(
     rendered = _apply_mode(img, canvas_width, canvas_height, mode, background_color)
     rendered = _apply_enhancements(rendered, brightness, saturation, sharpness)
     quantized = rendered.quantize(palette=_PALETTE_CACHE, dither=Image.FLOYDSTEINBERG)
-    return quantized.convert("RGB")
+    final = quantized.convert("RGB")
+    if show_error_badge:
+        _draw_error_badge(final, kind=error_badge_kind)
+    return final

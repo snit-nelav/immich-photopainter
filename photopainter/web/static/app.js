@@ -73,6 +73,9 @@ const I18N = {
     "cache.title": "Local cache",
     "cache.intro": "Downloaded photos are cached. If Immich is unavailable, the frame uses the cache. Old entries are auto-purged every night at midnight.",
     "cache.max_size": "Max size:",
+    "cache.clear": "🗑 Clear cache",
+    "cache.clear_confirm": "Delete every cached photo? Next cycle will re-download from Immich.",
+    "cache.cleared": "cache cleared ({n} files, {mb} MB)",
     "save": "💾 Save configuration",
     "fb.saved": "✓ saved",
     "fb.saving": "saving…",
@@ -157,6 +160,9 @@ const I18N = {
     "cache.title": "Cache local",
     "cache.intro": "Les photos téléchargées sont mises en cache. Si Immich est indisponible, le cadre puisera dans le cache. Purge automatique des plus anciennes chaque nuit à minuit.",
     "cache.max_size": "Taille max :",
+    "cache.clear": "🗑 Vider le cache",
+    "cache.clear_confirm": "Supprimer toutes les photos en cache ? Le prochain cycle re-téléchargera depuis Immich.",
+    "cache.cleared": "cache vidé ({n} fichiers, {mb} Mo)",
     "save": "💾 Enregistrer la configuration",
     "fb.saved": "✓ enregistré",
     "fb.saving": "enregistrement…",
@@ -527,6 +533,19 @@ $("#btn-live-preview").onclick = async () => {
     fb.textContent = t("enhance.live_preview_running");
     setTimeout(loadAll, 30000);
     setTimeout(() => { fb.textContent = ""; }, 30000);
+  } catch (e) {
+    fb.textContent = "✗ " + e.message;
+  }
+};
+
+$("#btn-cache-clear").onclick = async () => {
+  if (!confirm(t("cache.clear_confirm"))) return;
+  const fb = $("#cache-feedback");
+  try {
+    const r = await jpost("/api/cache/clear");
+    fb.textContent = t("cache.cleared", { n: r.removed, mb: (r.freed_bytes / 1024 / 1024).toFixed(1) });
+    loadCacheInfo();
+    setTimeout(() => { fb.textContent = ""; }, 5000);
   } catch (e) {
     fb.textContent = "✗ " + e.message;
   }

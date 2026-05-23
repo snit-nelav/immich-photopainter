@@ -219,6 +219,15 @@ def create_app() -> Flask:
             "path": str(cfg.cache.path),
         })
 
+    @app.post("/api/cache/clear")
+    def cache_clear():
+        cfg = load_config(CONFIG_PATH)
+        cache = AssetCache(cfg.cache.path, gb_to_bytes(cfg.cache.max_size_gb))
+        removed, freed = cache.clear_all()
+        events_log.log_event("INFO", "cache_clear_manual",
+                              removed=removed, freed_mb=round(freed / 1024 / 1024, 1))
+        return jsonify({"status": "ok", "removed": removed, "freed_bytes": freed})
+
     @app.post("/api/refresh")
     def trigger_refresh():
         pid, err = _spawn_refresh(["--ignore-schedule"])

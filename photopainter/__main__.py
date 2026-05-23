@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from photopainter.config import load_config, Config
+from photopainter import events_log
 from photopainter.events_log import log_event
 from photopainter.history import History
 from photopainter.scheduler import should_refresh_now, write_last_status
@@ -94,6 +95,35 @@ def _canvas_size(cfg: Config) -> tuple[int, int]:
     return cfg.display.canvas_height, cfg.display.canvas_width
 
 
+def _wifi_link_up(iface: str = "wlan0") -> bool:
+    """True if the Pi's Wi-Fi interface is associated to an access point.
+    Read straight from sysfs so it is essentially free."""
+    try:
+        return Path(f"/sys/class/net/{iface}/operstate").read_text().strip() == "up"
+    except OSError:
+        return False
+
+
+def _resolve_error_badge(source: CachingSource) -> tuple[bool, str]:
+    """Decide whether to overlay an error badge on the photo and which one.
+
+    Rules (evaluated every cycle, no extra refresh forced just for the icon):
+      - "wifi"  : the Wi-Fi link itself is down (interface not associated).
+                  Reserved strictly for the radio layer.
+      - "alert" : everything else — Immich unreachable despite Wi-Fi up
+                  (source.fallback_used), or any ERROR / non-Wi-Fi WARNING
+                  logged in events.log since the last cycle_ok.
+      - none    : healthy state.
+    """
+    if not _wifi_link_up():
+        return True, "wifi"
+    if source.fallback_used:
+        return True, "alert"
+    if events_log.has_alert_since_last_ok():
+        return True, "alert"
+    return False, "wifi"
+
+
 def _try_process(
     source: CachingSource,
     cfg: Config,
@@ -108,6 +138,7 @@ def _try_process(
     except Exception as exc:
         log.warning("download failed for %s: %s", asset.id, exc)
         return None
+    show_badge, badge_kind = _resolve_error_badge(source)
     try:
         rendered = image_processor.process(
             raw, canvas_w, canvas_h,
@@ -118,6 +149,8 @@ def _try_process(
             cfg.display.brightness,
             cfg.display.saturation,
             cfg.display.sharpness,
+            show_error_badge=show_badge,
+            error_badge_kind=badge_kind,
         )
     except Exception as exc:
         log.warning("image processing failed for %s: %s", asset.id, exc)
@@ -206,11 +239,17 @@ def cycle(cfg: Config, display: Display, force_asset: str | None = None) -> int:
                 raw = cache.get(cache_id)
                 if raw is None:
                     raise RuntimeError("cache file disappeared between list and get")
+                # All retries failed, we are pulling straight from the cache.
+                # The badge kind depends on whether the failure is on the
+                # radio layer (Wi-Fi off) or higher up (Immich KO or other).
+                show_badge, badge_kind = _resolve_error_badge(source)
                 rendered = image_processor.process(
                     raw, canvas_w, canvas_h,
                     cfg.display.rotation, cfg.display.compatible_mode,
                     cfg.display.inverted_mode, cfg.display.background_color,
                     cfg.display.brightness, cfg.display.saturation, cfg.display.sharpness,
+                    show_error_badge=show_badge,
+                    error_badge_kind=badge_kind,
                 )
             except Exception as exc:
                 log.error("cache fallback failed: %s", exc)

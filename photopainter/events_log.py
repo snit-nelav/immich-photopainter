@@ -70,6 +70,50 @@ def read_tail(limit: int, before_ts: str | None = None, path: Path = DEFAULT_PAT
     return all_entries[:limit], len(all_entries) > limit
 
 
+def has_alert_since_last_ok(path: Path = DEFAULT_PATH) -> bool:
+    """Returns True if any ERROR or non-wifi WARNING was logged since the
+    last ``cycle_ok`` event. Used by the cycle to decide whether to draw an
+    alert badge on the next photo. Wi-Fi-related events are excluded — they
+    are signalled by their own badge driven by ``source.fallback_used``.
+    """
+    if not path.exists():
+        return False
+    entries: list[dict] = []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entries.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    except OSError:
+        return False
+
+    last_ok = -1
+    for i, e in enumerate(entries):
+        if e.get("msg") == "cycle_ok":
+            last_ok = i
+    after = entries[last_ok + 1:]
+
+    # These messages are upstream/network related and are reported via the
+    # Wi-Fi badge, not the generic alert one.
+    WIFI_EVENTS = {
+        "degraded_mode",
+        "immich_retry",
+        "immich_giveup",
+        "upstream_unreachable_cache_fallback",
+    }
+    for e in after:
+        if e.get("msg") in WIFI_EVENTS:
+            continue
+        if e.get("level") in ("ERROR", "WARNING"):
+            return True
+    return False
+
+
 def clear(path: Path = DEFAULT_PATH) -> None:
     """Empty the events log file (best effort)."""
     try:
