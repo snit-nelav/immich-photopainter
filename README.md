@@ -14,17 +14,17 @@ Everything — album, refresh frequency, orientation, display mode, language —
 
 ## ✨ Features
 
-- 🎲 Random pick from any Immich album, refreshed every **5–60 min** (configurable).
-- 🌙 Configurable **quiet hours** (toggle + start / end hour, wraps midnight) — silent at night, last photo stays on screen for free (e-paper).
-- 🎨 Per-orientation display modes — **fill** (crop), **square** (1:1 centered), or **original** (full photo with bands). Bands color: white or black.
-- 🔄 Rotation 0° / 90° / 180° / 270° — hang the frame portrait, landscape, upside-down…
+- 🎲 **Random photo** from any Immich album, refreshed every **5–60 min** (configurable).
+- 🔄 **Rotation 0° / 90° / 180° / 270°** — hang the frame portrait, landscape, upside-down… the canvas adapts.
+- 🎨 **Per-orientation display modes** — **fill** (crop to frame), **square** (1:1 centered), or **original** (full photo with bands). Bands color: white or black.
 - 🎚️ **Image enhancement** sliders (brightness / saturation / sharpness) with a **Live preview** button to iterate on the panel without leaving the UI.
-- 🌈 Floyd-Steinberg dithering against the Spectra 6 native palette.
-- 💾 Local cache (1–10 GB) with nightly auto-purge + a manual **Clear cache** button — if Immich is offline, the frame keeps cycling from the cache.
-- 🚨 **At-a-glance error badge** in the bottom-left corner of the photo: a wifi-off pictogram when the radio link is down, an alert-triangle for any other problem (Immich unreachable, crashes, …). Disappears automatically once a cycle succeeds again.
+- 🌙 Configurable **quiet hours** (toggle + start / end hour, wraps midnight) — silent at night, last photo stays on screen for free (e-paper).
+- 💾 **Local cache (1–10 GB)** with nightly auto-purge + a manual **Clear cache** button — if Immich is offline, the frame keeps cycling from what it already has.
+- 🚨 **At-a-glance error badge** in the bottom-left corner of the photo: a wifi-off pictogram when the radio link is down, an alert-triangle for any other problem (Immich unreachable, crashes, …). Vanishes automatically once a cycle succeeds again.
 - 📊 **Status block** with the photo's filename + EXIF capture date, plus a collapsible **activity log** (structured events, paginated, one-click clear) for easy troubleshooting.
-- 🌍 Bilingual UI (🇬🇧 / 🇫🇷), every preference persisted server-side (no cookies, no localStorage).
-- 🔁 **Survives reboots** — the refresh lock and the live preview file live on persistent storage, the frame picks up automatically.
+- 🔁 **Survives reboots** — refresh lock and live preview live on persistent storage, the frame picks up automatically on power-up.
+- 🌈 **Floyd-Steinberg dithering** against the native Spectra 6 palette — better color rendition than the stock Waveshare driver.
+- 🌍 **Bilingual UI** (🇬🇧 / 🇫🇷), every preference persisted server-side (no cookies, no localStorage).
 - 🔒 **LAN-only** by design (no auth needed, no cloud, no analytics).
 
 ---
