@@ -21,6 +21,7 @@ from flask import Flask, jsonify, request, send_file, send_from_directory, abort
 
 from photopainter.config import load_config, dump_config, Config, ALLOWED_INTERVALS, ALLOWED_ROTATIONS
 from photopainter.cache import AssetCache, gb_to_bytes
+from photopainter import events_log
 from photopainter.scheduler import read_last_status
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,8 @@ def _categorize_change(old: dict, new: dict) -> str:
 
     old_d = old.get("display", {})
     new_d = new.get("display", {})
-    for k in ("rotation", "compatible_mode", "inverted_mode", "background_color"):
+    for k in ("rotation", "compatible_mode", "inverted_mode", "background_color",
+              "brightness", "saturation", "sharpness"):
         if old_d.get(k) != new_d.get(k):
             return "redraw"
     return "none"
@@ -154,6 +156,10 @@ def create_app() -> Flask:
         logger.info("config updated via UI")
 
         category = _categorize_change(old_snapshot, merged)
+        # Caller may force a redraw even when nothing changed (used by the
+        # "Live preview" button so the user can iterate on enhancement sliders).
+        if patch.get("_force_redraw") and category == "none":
+            category = "redraw"
         triggered_pid: int | None = None
         trigger_error: str | None = None
         if category == "new_photo":
@@ -254,6 +260,22 @@ def create_app() -> Flask:
             return jsonify(json.loads(HISTORY_PATH.read_text(encoding="utf-8")))
         except (json.JSONDecodeError, OSError):
             return jsonify({"entries": [], "warning": "corrupted"})
+
+    @app.get("/api/logs")
+    def get_logs():
+        try:
+            limit = max(1, min(int(request.args.get("limit", 100)), 500))
+        except ValueError:
+            limit = 100
+        before_ts = request.args.get("before") or None
+        entries, has_more = events_log.read_tail(limit=limit, before_ts=before_ts)
+        return jsonify({"entries": entries, "has_more": has_more, "limit": limit})
+
+    @app.post("/api/logs/clear")
+    def post_clear_logs():
+        events_log.clear()
+        events_log.log_event("INFO", "logs_cleared")
+        return jsonify({"status": "ok"})
 
     return app
 

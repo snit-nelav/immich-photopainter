@@ -77,6 +77,7 @@ def write_last_status(
     asset_id: str,
     durations: dict[str, float],
     status: str,
+    **extra,
 ) -> None:
     status_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = status_path.with_suffix(status_path.suffix + ".tmp")
@@ -85,6 +86,7 @@ def write_last_status(
         "asset_id": asset_id,
         "status": status,
         "durations": durations,
+        **extra,
     }
     tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     tmp.replace(status_path)

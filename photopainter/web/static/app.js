@@ -12,7 +12,25 @@ const I18N = {
     "status.never_run": "never run",
     "status.corrupted": "last_status corrupted",
     "status.fallback": "(degraded mode, cache)",
+    "status.file": "file",
+    "status.taken_on": "taken on",
+    "enhance.title": "Image enhancement",
+    "enhance.help": "Useful to compensate for the muted Spectra 6 palette. 1.0 = identity, 0.0 = removed, 2.0 = doubled.",
+    "enhance.brightness": "Brightness",
+    "enhance.saturation": "Saturation",
+    "enhance.sharpness": "Sharpness",
+    "enhance.live_preview": "👁 Live preview",
+    "enhance.live_preview_running": "applied, refreshing the panel (~25s)…",
     "status.no_preview": "No preview yet — waiting for the next refresh.",
+    "logs.title": "Logs",
+    "logs.help": "Recent events (newest first). Auto-purged after 14 days. Paste them here if something goes wrong.",
+    "logs.loadmore": "↓ Load more",
+    "logs.clear": "🗑 Clear logs",
+    "logs.cleared": "logs cleared",
+    "logs.no_logs": "(no events yet)",
+    "logs.loading": "loading logs…",
+    "logs.no_more": "no more logs",
+    "logs.confirm_clear": "Clear all logs?",
     "actions.title": "Actions",
     "actions.refresh": "↻ Refresh now",
     "actions.clear": "⚠ Clear screen",
@@ -78,7 +96,25 @@ const I18N = {
     "status.never_run": "jamais exécuté",
     "status.corrupted": "last_status corrompu",
     "status.fallback": "(mode dégradé, cache)",
+    "status.file": "fichier",
+    "status.taken_on": "prise le",
+    "enhance.title": "Amélioration image",
+    "enhance.help": "Utile pour compenser la palette Spectra 6 atténuée. 1.0 = identité, 0.0 = supprimé, 2.0 = doublé.",
+    "enhance.brightness": "Luminosité",
+    "enhance.saturation": "Saturation",
+    "enhance.sharpness": "Netteté",
+    "enhance.live_preview": "👁 Aperçu live",
+    "enhance.live_preview_running": "appliqué, refresh du cadre (~25s)…",
     "status.no_preview": "Pas encore d'aperçu — en attente du prochain refresh.",
+    "logs.title": "Logs",
+    "logs.help": "Événements récents (plus récents en haut). Purgés après 14 jours. Colle-les ici en cas de souci.",
+    "logs.loadmore": "↓ Charger plus",
+    "logs.clear": "🗑 Effacer les logs",
+    "logs.cleared": "logs effacés",
+    "logs.no_logs": "(aucun événement)",
+    "logs.loading": "chargement…",
+    "logs.no_more": "fin de l'historique",
+    "logs.confirm_clear": "Effacer tous les logs ?",
     "actions.title": "Actions",
     "actions.refresh": "↻ Refresh maintenant",
     "actions.clear": "⚠ Clear screen",
@@ -168,15 +204,27 @@ function fmtSeconds(s) { s = Math.round(s); if (s < 60) return s + " s"; return 
 function fmtDate(iso) { if (!iso) return "—"; const locale = currentLang === "fr" ? "fr-FR" : "en-GB"; return new Date(iso).toLocaleString(locale, { dateStyle: "short", timeStyle: "medium" }); }
 function fmtBytes(b) { if (b < 1024) return b + " B"; if (b < 1024*1024) return (b/1024).toFixed(1) + " KB"; if (b < 1024*1024*1024) return (b/1024/1024).toFixed(1) + " MB"; return (b/1024/1024/1024).toFixed(2) + " GB"; }
 
+function escapeHtml(str) {
+  if (str == null) return "";
+  return String(str).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+}
+
 function renderStatus(s) {
   const body = $("#status-body");
   if (!s || s.status === "never_run") { body.innerHTML = "<em>" + t("status.never_run") + "</em>"; return; }
   if (s.status === "corrupted") { body.innerHTML = "<em>" + t("status.corrupted") + "</em>"; return; }
   const d = s.durations || {};
   const fb = s.status === "success_fallback" ? " <span class='muted'>" + t("status.fallback") + "</span>" : "";
+  const fileLine = s.filename
+    ? `<div class="muted">${t("status.file")}: <strong>${escapeHtml(s.filename)}</strong></div>`
+    : `<div class="muted">asset: <code>${escapeHtml(s.asset_id || "—")}</code></div>`;
+  const takenLine = s.date_taken
+    ? `<div class="muted">${t("status.taken_on")} ${escapeHtml(fmtDate(s.date_taken))}</div>`
+    : "";
   body.innerHTML = `
     <div><strong>${s.status}</strong>${fb} · ${fmtDate(s.timestamp)}</div>
-    <div class="muted">asset: <code>${s.asset_id || "—"}</code></div>
+    ${fileLine}
+    ${takenLine}
     <div class="muted">fetch ${fmtSeconds(d.fetch_list||0)} · download ${fmtSeconds(d.download||0)} · process ${fmtSeconds(d.process||0)} · display ${fmtSeconds(d.display||0)}</div>`;
   if (s.timestamp && currentInterval) {
     const next = new Date(new Date(s.timestamp).getTime() + currentInterval * 60 * 1000);
@@ -231,6 +279,9 @@ function collectPatch() {
       compatible_mode: getRadio("compatible_mode") || "fill",
       inverted_mode: getRadio("inverted_mode") || "original",
       background_color: currentBg,
+      brightness: parseFloat($("#brightness").value),
+      saturation: parseFloat($("#saturation").value),
+      sharpness: parseFloat($("#sharpness").value),
     },
     scheduling: {
       refresh_interval_minutes: currentInterval,
@@ -271,7 +322,8 @@ function refreshQuietFieldsState() {
 }
 
 function bindDirtyInputs() {
-  ["#immich-url", "#immich-api-key", "#immich-album", "#cache-size"].forEach(sel => {
+  ["#immich-url", "#immich-api-key", "#immich-album", "#cache-size",
+   "#brightness", "#saturation", "#sharpness"].forEach(sel => {
     const el = $(sel);
     if (el) el.addEventListener("input", updateDirty);
     if (el) el.addEventListener("change", updateDirty);
@@ -337,6 +389,15 @@ async function loadAll() {
   setRadio("inverted_mode", d.inverted_mode);
   bindBg(d.background_color);
 
+  // Image enhancements
+  for (const k of ["brightness", "saturation", "sharpness"]) {
+    const sl = $("#" + k);
+    const val = (d[k] != null) ? d[k] : 1;
+    sl.value = val;
+    $("#" + k + "-val").textContent = (+val).toFixed(2);
+    sl.oninput = e => { $("#" + k + "-val").textContent = (+e.target.value).toFixed(2); updateDirty(); };
+  }
+
   $("#cache-size").value = ca.max_size_gb;
   $("#cache-size-val").textContent = ca.max_size_gb.toFixed(1);
   $("#cache-size").oninput = e => { $("#cache-size-val").textContent = (+e.target.value).toFixed(1); updateDirty(); };
@@ -345,10 +406,70 @@ async function loadAll() {
   loadCacheInfo();
   await loadAlbums();
   showPreview();
+  loadLogs({ append: false });
 
   initialSnapshot = snapshotForm();
   updateDirty();
 }
+
+// ----- Logs -----
+let logsOldestTs = null;
+
+function fmtLogEntry(e) {
+  const ts = e.ts ? new Date(e.ts).toLocaleString(currentLang === "fr" ? "fr-FR" : "en-GB", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }) : "?";
+  const lvl = (e.level || "").padEnd(5);
+  const msg = e.msg || "";
+  const extras = Object.entries(e)
+    .filter(([k]) => !["ts", "level", "msg"].includes(k))
+    .map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`)
+    .join(" ");
+  return `[${ts}] ${lvl} ${msg}${extras ? " " + extras : ""}`;
+}
+
+async function loadLogs({ append } = { append: false }) {
+  const area = $("#logs-area");
+  const fb = $("#logs-feedback");
+  const more = $("#btn-logs-loadmore");
+  if (!area) return;
+  fb.textContent = t("logs.loading");
+  let url = "/api/logs?limit=100";
+  if (append && logsOldestTs) url += "&before=" + encodeURIComponent(logsOldestTs);
+  try {
+    const data = await jget(url);
+    const lines = (data.entries || []).map(fmtLogEntry).join("\n");
+    if (append) {
+      area.value = area.value + (area.value ? "\n" : "") + lines;
+    } else {
+      area.value = lines || t("logs.no_logs");
+    }
+    // Track the oldest entry seen so the next "Load more" knows where to continue from.
+    if (data.entries && data.entries.length) {
+      logsOldestTs = data.entries[data.entries.length - 1].ts;
+    }
+    more.disabled = !data.has_more;
+    fb.textContent = data.has_more ? "" : t("logs.no_more");
+  } catch (e) {
+    fb.textContent = "✗ " + e.message;
+  }
+}
+
+$("#btn-logs-loadmore").onclick = () => loadLogs({ append: true });
+
+$("#btn-logs-clear").onclick = async () => {
+  if (!confirm(t("logs.confirm_clear"))) return;
+  const fb = $("#logs-feedback");
+  try {
+    await jpost("/api/logs/clear");
+    logsOldestTs = null;
+    fb.textContent = t("logs.cleared");
+    await loadLogs({ append: false });
+  } catch (e) {
+    fb.textContent = "✗ " + e.message;
+  }
+};
 
 async function showPreview() {
   const img = $("#preview"), empty = $("#preview-empty");
@@ -393,11 +514,22 @@ $("#btn-refresh").onclick = async () => {
   catch (e) { fb.textContent = "✗ " + e.message; }
 };
 
-$("#btn-clear").onclick = async () => {
-  if (!confirm(t("fb.clear_confirm"))) return;
-  const fb = $("#action-feedback");
-  try { await jpost("/api/clear"); fb.textContent = t("fb.clear_started"); }
-  catch (e) { fb.textContent = "✗ " + e.message; }
+// "Live preview" button: save the config + force a redraw on the current
+// photo so the user can iterate on enhancement sliders. _force_redraw makes
+// the server trigger the cycle even when the sliders' value did not change.
+$("#btn-live-preview").onclick = async () => {
+  const fb = $("#live-preview-feedback");
+  fb.textContent = t("fb.saving");
+  try {
+    const patch = collectPatch();
+    patch._force_redraw = true;
+    await jpost("/api/config", patch);
+    fb.textContent = t("enhance.live_preview_running");
+    setTimeout(loadAll, 30000);
+    setTimeout(() => { fb.textContent = ""; }, 30000);
+  } catch (e) {
+    fb.textContent = "✗ " + e.message;
+  }
 };
 
 $("#btn-reload-albums").onclick = () => loadAlbums();

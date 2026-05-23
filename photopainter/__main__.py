@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from photopainter.config import load_config, Config
+from photopainter.events_log import log_event
 from photopainter.history import History
 from photopainter.scheduler import should_refresh_now, write_last_status
 from photopainter import image_processor
@@ -114,6 +115,9 @@ def _try_process(
             cfg.display.compatible_mode,
             cfg.display.inverted_mode,
             cfg.display.background_color,
+            cfg.display.brightness,
+            cfg.display.saturation,
+            cfg.display.sharpness,
         )
     except Exception as exc:
         log.warning("image processing failed for %s: %s", asset.id, exc)
@@ -132,10 +136,12 @@ def cycle(cfg: Config, display: Display, force_asset: str | None = None) -> int:
     timings["fetch_list"] = time.perf_counter() - t
     if source.fallback_used:
         log.warning("DEGRADED MODE: upstream unreachable, drawing from cache (%d assets)", len(all_assets))
+        log_event("WARNING", "degraded_mode", reason="upstream_unreachable", cache_assets=len(all_assets))
 
     images = [a for a in all_assets if a.type == "IMAGE"]
     if not images:
         log.error("no IMAGE assets available (neither upstream nor cache)")
+        log_event("ERROR", "no_assets")
         write_last_status(LAST_STATUS_PATH, "", timings, "no_assets")
         return 2
 
@@ -204,11 +210,14 @@ def cycle(cfg: Config, display: Display, force_asset: str | None = None) -> int:
                     raw, canvas_w, canvas_h,
                     cfg.display.rotation, cfg.display.compatible_mode,
                     cfg.display.inverted_mode, cfg.display.background_color,
+                    cfg.display.brightness, cfg.display.saturation, cfg.display.sharpness,
                 )
             except Exception as exc:
                 log.error("cache fallback failed: %s", exc)
+                log_event("ERROR", "cache_fallback_failed", asset_id=cache_id[:8], error=str(exc))
                 write_last_status(LAST_STATUS_PATH, cache_id, timings, f"cache_fallback_failed: {exc}")
                 return 0
+            log_event("WARNING", "all_retries_failed_using_cache", asset_id=cache_id[:8])
             timings["process"] = time.perf_counter() - t
 
     assert chosen is not None and rendered is not None
@@ -218,6 +227,7 @@ def cycle(cfg: Config, display: Display, force_asset: str | None = None) -> int:
         display.push(rendered, cfg.display.rotation)
     except Exception as exc:
         log.error("display push failed: %s", exc)
+        log_event("ERROR", "display_failed", asset_id=chosen.id[:8], error=str(exc))
         write_last_status(LAST_STATUS_PATH, chosen.id, timings, f"display_failed: {exc}")
         return 5
     timings["display"] = time.perf_counter() - t
@@ -234,8 +244,20 @@ def cycle(cfg: Config, display: Display, force_asset: str | None = None) -> int:
 
     history.add(chosen.id)
     status = "success_fallback" if source.fallback_used else "success"
-    write_last_status(LAST_STATUS_PATH, chosen.id, timings, status)
-    log.info("cycle OK (total %.2fs, status=%s)", sum(timings.values()), status)
+    write_last_status(
+        LAST_STATUS_PATH, chosen.id, timings, status,
+        filename=chosen.filename or None,
+        date_taken=chosen.date_taken,
+    )
+    total = sum(timings.values())
+    log.info("cycle OK (total %.2fs, status=%s)", total, status)
+    log_event(
+        "INFO", "cycle_ok",
+        asset_id=chosen.id[:8],
+        filename=chosen.filename or None,
+        duration_s=round(total, 2),
+        from_cache=source.fallback_used,
+    )
     return 0
 
 
@@ -249,6 +271,8 @@ def purge_cache(cfg: Config) -> int:
         before_count, cache.file_count(), removed,
         before_size / 1024 / 1024, cache.total_size() / 1024 / 1024, freed / 1024 / 1024,
     )
+    if removed:
+        log_event("INFO", "cache_purge", removed=removed, freed_mb=round(freed / 1024 / 1024, 1))
     return 0
 
 
@@ -281,6 +305,7 @@ def main(argv: list[str] | None = None) -> int:
         # Should never happen now that the lock lives on /var/lib, but if it
         # does we want a visible trace instead of a silent crash.
         log.error("could not acquire lock: %s", exc)
+        log_event("ERROR", "lock_failed", error=str(exc))
         try:
             write_last_status(LAST_STATUS_PATH, "", {}, f"lock_failed: {exc}")
         except Exception:
@@ -322,6 +347,7 @@ def _record_crash(exc: BaseException) -> None:
         import traceback as _tb
         write_last_status(LAST_STATUS_PATH, "", {},
                           f"crash: {exc.__class__.__name__}: {exc}")
+        log_event("ERROR", "crash", error=f"{exc.__class__.__name__}: {exc}")
         # Keep a tail of the traceback alongside the regular log for debug.
         try:
             log = logging.getLogger("photopainter.crash")

@@ -15,7 +15,7 @@ import io
 import logging
 from typing import Literal
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageEnhance, ImageOps
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +97,18 @@ def _apply_mode(img: Image.Image, canvas_w: int, canvas_h: int, mode: DisplayMod
     raise ValueError(f"unknown display mode: {mode}")
 
 
+def _apply_enhancements(img: Image.Image, brightness: float, saturation: float, sharpness: float) -> Image.Image:
+    """Apply user-controlled image enhancements before quantization.
+    A factor of 1.0 is a no-op so the default path is unchanged."""
+    if brightness != 1.0:
+        img = ImageEnhance.Brightness(img).enhance(brightness)
+    if saturation != 1.0:
+        img = ImageEnhance.Color(img).enhance(saturation)
+    if sharpness != 1.0:
+        img = ImageEnhance.Sharpness(img).enhance(sharpness)
+    return img
+
+
 def process(
     raw_bytes: bytes,
     canvas_width: int,
@@ -105,6 +117,9 @@ def process(
     compatible_mode: DisplayMode,
     inverted_mode: DisplayMode,
     background_color: Literal["white", "black"],
+    brightness: float = 1.0,
+    saturation: float = 1.0,
+    sharpness: float = 1.0,
 ) -> Image.Image:
     """Return an RGB PIL image (canvas-shaped) dithered against the E6 palette."""
     img = Image.open(io.BytesIO(raw_bytes))
@@ -113,9 +128,11 @@ def process(
     compatible = _is_compatible(src_w, src_h, canvas_width, canvas_height)
     mode: DisplayMode = compatible_mode if compatible else inverted_mode
     logger.info(
-        "source %dx%d, canvas %dx%d, rotation %d, compatible=%s, mode=%s, bg=%s",
+        "source %dx%d, canvas %dx%d, rotation %d, compatible=%s, mode=%s, bg=%s, b=%.2f s=%.2f sh=%.2f",
         src_w, src_h, canvas_width, canvas_height, rotation, compatible, mode, background_color,
+        brightness, saturation, sharpness,
     )
     rendered = _apply_mode(img, canvas_width, canvas_height, mode, background_color)
+    rendered = _apply_enhancements(rendered, brightness, saturation, sharpness)
     quantized = rendered.quantize(palette=_PALETTE_CACHE, dither=Image.FLOYDSTEINBERG)
     return quantized.convert("RGB")

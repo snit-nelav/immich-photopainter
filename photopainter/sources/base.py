@@ -10,6 +10,7 @@ class Asset:
     id: str
     type: str          # "IMAGE" (videos are filtered upstream)
     filename: str = ""
+    date_taken: str | None = None    # ISO date when the photo was originally taken
 
 
 @runtime_checkable

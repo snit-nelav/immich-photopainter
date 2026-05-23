@@ -28,13 +28,10 @@
         <img id="preview" alt="preview" style="display:none">
         <div id="preview-empty" class="preview-empty" data-i18n="status.no_preview">No preview yet — waiting for the next refresh.</div>
       </div>
-    </section>
-
-    <section class="card">
-      <h2 data-i18n="actions.title">Actions</h2>
-      <button id="btn-refresh" class="primary" data-i18n="actions.refresh">↻ Refresh now</button>
-      <button id="btn-clear" class="danger" data-i18n="actions.clear">⚠ Clear screen</button>
-      <span id="action-feedback" class="muted"></span>
+      <div class="status-actions">
+        <button id="btn-refresh" class="primary" data-i18n="actions.refresh">↻ Refresh now</button>
+        <span id="action-feedback" class="muted"></span>
+      </div>
     </section>
 
     <section class="card">
@@ -129,12 +126,41 @@
     </section>
 
     <section class="card">
+      <h2 data-i18n="enhance.title">Image enhancement</h2>
+      <p class="muted small" data-i18n="enhance.help">Useful to compensate for the muted Spectra 6 palette. 1.0 = identity, 0.0 = removed, 2.0 = doubled.</p>
+      <label><span data-i18n="enhance.brightness">Brightness</span> <b id="brightness-val">1.00</b>
+        <input type="range" id="brightness" min="0" max="2" step="0.05" value="1">
+      </label>
+      <label><span data-i18n="enhance.saturation">Saturation</span> <b id="saturation-val">1.00</b>
+        <input type="range" id="saturation" min="0" max="2" step="0.05" value="1">
+      </label>
+      <label><span data-i18n="enhance.sharpness">Sharpness</span> <b id="sharpness-val">1.00</b>
+        <input type="range" id="sharpness" min="0" max="2" step="0.05" value="1">
+      </label>
+      <button id="btn-live-preview" class="primary" data-i18n="enhance.live_preview">👁 Live preview</button>
+      <span id="live-preview-feedback" class="muted small"></span>
+    </section>
+
+    <section class="card">
       <h2 data-i18n="cache.title">Local cache</h2>
       <p class="muted small" data-i18n="cache.intro">Downloaded photos are cached. If Immich is unavailable, the frame uses the cache. Old entries are auto-purged every night at midnight.</p>
       <label><span data-i18n="cache.max_size">Max size:</span> <b id="cache-size-val">2.0</b> GB
         <input type="range" id="cache-size" min="1" max="10" step="0.5" value="2">
       </label>
       <p id="cache-info" class="muted small">—</p>
+    </section>
+
+    <section class="card">
+      <details id="logs-card">
+        <summary><span class="h2-inline" data-i18n="logs.title">Logs</span></summary>
+        <p class="muted small" data-i18n="logs.help">Recent events (newest first). Auto-purged after 14 days. Paste them here if something goes wrong.</p>
+        <textarea id="logs-area" readonly></textarea>
+        <div class="logs-actions">
+          <button id="btn-logs-loadmore" type="button" data-i18n="logs.loadmore">↓ Load more</button>
+          <button id="btn-logs-clear" type="button" class="danger" data-i18n="logs.clear">🗑 Clear logs</button>
+          <span id="logs-feedback" class="muted small"></span>
+        </div>
+      </details>
     </section>
   </main>
 
@@ -143,7 +169,7 @@
     <span id="save-feedback" class="muted"></span>
   </div>
 
-  <footer><p class="muted">v0.5.0 · LAN-only</p></footer>
+  <footer><p class="muted">v0.6.0 · LAN-only</p></footer>
 
   <script src="/static/app.js"></script>
 </body>

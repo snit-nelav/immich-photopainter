@@ -95,6 +95,53 @@ fieldset legend { font-size: 0.85rem; color: var(--muted); padding: 0 0.5rem; }
   background: #faf9f4;
 }
 
+/* Status actions row (refresh button under the preview) */
+.status-actions { margin-top: 0.75rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.status-actions button { margin: 0; }
+
+/* Logs section */
+#logs-card summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+#logs-card summary::before {
+  content: "+";
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--muted);
+  width: 1rem;
+  display: inline-block;
+  text-align: center;
+}
+#logs-card[open] summary::before { content: "−"; }
+#logs-card .h2-inline { font-size: 1.05rem; font-weight: 600; }
+#logs-area {
+  width: 100%;
+  min-height: 220px;
+  max-height: 360px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  background: #faf9f4;
+  color: #333;
+  resize: vertical;
+  margin-top: 0.5rem;
+}
+.logs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
 .header-row { display: flex; justify-content: space-between; align-items: center; }
 .lang-switch { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
 .lang-switch label { margin: 0; }

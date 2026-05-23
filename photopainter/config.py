@@ -40,6 +40,12 @@ class DisplayConfig(BaseModel):
     compatible_mode: DisplayMode = "fill"
     inverted_mode: DisplayMode = "original"
     background_color: Literal["white", "black"] = "white"
+    # PIL ImageEnhance factors applied before dithering. 1.0 = identity.
+    # 0.0 zeroes the channel (B&W for saturation, full blur for sharpness);
+    # 2.0 doubles it. Useful to compensate for the muted Spectra 6 palette.
+    brightness: float = 1.0
+    saturation: float = 1.0
+    sharpness: float = 1.0
 
     @field_validator("rotation")
     @classmethod
@@ -47,6 +53,13 @@ class DisplayConfig(BaseModel):
         if v not in ALLOWED_ROTATIONS:
             raise ValueError(f"rotation must be one of {ALLOWED_ROTATIONS}")
         return v
+
+    @field_validator("brightness", "saturation", "sharpness")
+    @classmethod
+    def validate_enhance(cls, v: float) -> float:
+        if not (0.0 <= v <= 2.0):
+            raise ValueError("enhancement factors must be in [0.0, 2.0]")
+        return float(v)
 
 
 class SchedulingConfig(BaseModel):

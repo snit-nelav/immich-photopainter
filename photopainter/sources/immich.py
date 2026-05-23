@@ -7,6 +7,7 @@ from typing import Any
 
 import requests
 
+from photopainter.events_log import log_event
 from photopainter.sources.base import Asset
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,14 @@ class ImmichSource:
         for a in payload.get("assets", []):
             if a.get("type") != "IMAGE":
                 continue
-            out.append(Asset(id=a["id"], type="IMAGE", filename=a.get("originalFileName", "")))
+            # Prefer the EXIF "shot at" date; fall back to the file creation date.
+            date_taken = (a.get("exifInfo") or {}).get("dateTimeOriginal") or a.get("fileCreatedAt")
+            out.append(Asset(
+                id=a["id"],
+                type="IMAGE",
+                filename=a.get("originalFileName", ""),
+                date_taken=date_taken,
+            ))
         logger.info("Immich: %d IMAGE assets in album", len(out))
         return out
 
@@ -61,7 +69,9 @@ class ImmichSource:
                 last_exc = exc
                 wait = 4 ** i  # 1s, 4s, 16s
                 logger.warning("attempt %d/%d failed (%s), retrying in %ds", i + 1, attempts, exc, wait)
+                log_event("WARNING", "immich_retry", attempt=i + 1, total=attempts, error=str(exc)[:200])
                 time.sleep(wait)
+        log_event("ERROR", "immich_giveup", error=str(last_exc)[:200], attempts=attempts)
         raise ImmichError(f"giving up after {attempts} attempts: {last_exc}")
 
     def _fetch_album(self) -> dict[str, Any]:
