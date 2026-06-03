@@ -208,6 +208,13 @@ fieldset legend { font-size: 0.85rem; color: var(--muted); padding: 0 0.5rem; }
   padding-top: 1rem;
   border-top: 1px dashed var(--border);
 }
+/* Same separator when a sub-block sits inside a source tab panel
+   (e.g. the per-source cache slider tucked below the Immich fields). */
+.tab-panel .system-block {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border);
+}
 .system-sub {
   margin: 0 0 0.5rem;
   font-size: 0.95rem;

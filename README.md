@@ -23,7 +23,7 @@ Everything — album, refresh frequency, orientation, display mode, language —
 - 🎨 **Per-orientation display modes** — **fill** (crop to frame), **square** (1:1 centered), or **original** (full photo with bands). Bands color: white or black.
 - 🎚️ **Image enhancement** sliders (brightness / saturation / sharpness) with a **Live preview** button to iterate on the panel without leaving the UI.
 - 🗓️ **Weekly activity calendar (7×24)** — click any hour-cell to toggle it on/off, click a day label to flip the whole row, click an hour label to flip the whole column. Silent slots cost nothing on e-paper.
-- 💾 **Local cache (1–10 GB)** with nightly auto-purge + a manual **Clear cache** button — if Immich is offline, the frame keeps cycling from what it already has.
+- 💾 **Per-source local cache (1–10 GB)** with nightly auto-purge + a manual **Clear cache** button — if the source is offline, the frame keeps cycling from what it already has. Each source keeps its own cache (no mixing).
 - 🚨 **At-a-glance error badge** in the bottom-left corner of the photo: a wifi-off pictogram when the radio link is down, an alert-triangle for any other problem (Immich unreachable, crashes, …). Vanishes automatically once a cycle succeeds again.
 - 📊 **Status block** with the photo's filename + EXIF capture date, plus a collapsible **activity log** (structured events, paginated, one-click clear) for easy troubleshooting.
 - 🛠️ **Remote reboot / shutdown** of the Pi from the UI — no SSH needed.
@@ -92,7 +92,7 @@ Open **`http://<your-host>.local/`** (or `http://<pi-ip>/`) on any device on you
 
 1. 📊 **Last cycle status** (always visible) — shows the filename + EXIF capture date of the current photo, a thumbnail preview, and a **↻ Refresh now** button.
 
-2. 🖼️ **Photo album** — the section is organized in **source tabs** (only **Immich** for now, more coming). Each tab has a **radio button** that becomes the active source on save. Inside the Immich tab, fill in the **Immich URL**, the **API key** (a built-in tutorial tells you which 3 permissions to check: `album.read`, `asset.read`, `asset.download`), and pick an **Album** from the dropdown that auto-fills after URL + key are saved.
+2. 🖼️ **Photo album** — the section is organized in **source tabs** (only **Immich** for now, more coming). Each tab has a **radio button** that becomes the active source on save. Inside the Immich tab, fill in the **Immich URL**, the **API key** (a built-in tutorial tells you which 3 permissions to check: `album.read`, `asset.read`, `asset.download`), pick an **Album** from the dropdown that auto-fills after URL + key are saved, and adjust the per-source **Local cache** slider (1–10 GB) + **Clear cache** button at the bottom of the tab. Each source keeps its own cache.
 
 3. 🗓️ **Schedule**
    - **Refresh frequency** — `5 / 10 / 15 / 20 / 30 / 45 / 60 min`.
@@ -104,9 +104,8 @@ Open **`http://<your-host>.local/`** (or `http://<pi-ip>/`) on any device on you
 
 5. 🎚️ **Image enhancement** — brightness / saturation / sharpness sliders (range `0.0 – 2.0`, `1.0` = identity). The **👁 Live preview** button pushes the current photo to the panel with the new values so you can iterate without leaving the page.
 
-6. 🛠️ **System** — three sub-blocks:
+6. 🛠️ **System** — two sub-blocks:
    - **Maintenance** — `⟳ Reboot` and `⏻ Shutdown` buttons (each with a confirmation prompt).
-   - **Local cache** — size slider (`1 – 10 GB`) + manual **🗑 Clear cache**.
    - **Logs** (nested collapsible) — paginated event log with **Load more** / **Clear** buttons.
 
 Hit **💾 Save** (sticky bottom-right bar — gray when there are no changes, red when there are). A first photo appears on the panel in ~25 seconds. 🎉

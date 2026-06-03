@@ -85,6 +85,17 @@
           <button id="btn-reload-albums" type="button" class="link" data-i18n="source.reload_albums">↻ reload list</button>
         </label>
         <p id="albums-feedback" class="muted small"></p>
+
+        <div class="system-block">
+          <h3 class="system-sub" data-i18n="cache.title">Local cache</h3>
+          <p class="muted small" data-i18n="cache.intro">Downloaded photos are cached. If Immich is unavailable, the frame uses the cache. Old entries are auto-purged every night at midnight. Each source keeps its own cache.</p>
+          <label><span data-i18n="cache.max_size">Max size:</span> <b id="cache-size-val">2.0</b> GB
+            <input type="range" id="cache-size" min="1" max="10" step="0.5" value="2">
+          </label>
+          <p id="cache-info" class="muted small">—</p>
+          <button id="btn-cache-clear" type="button" class="danger" data-i18n="cache.clear">🗑 Clear cache</button>
+          <span id="cache-feedback" class="muted small"></span>
+        </div>
       </div>
       </details>
     </section>
@@ -185,17 +196,6 @@
       </div>
 
       <div class="system-block">
-        <h3 class="system-sub" data-i18n="cache.title">Local cache</h3>
-        <p class="muted small" data-i18n="cache.intro">Downloaded photos are cached. If Immich is unavailable, the frame uses the cache. Old entries are auto-purged every night at midnight.</p>
-        <label><span data-i18n="cache.max_size">Max size:</span> <b id="cache-size-val">2.0</b> GB
-          <input type="range" id="cache-size" min="1" max="10" step="0.5" value="2">
-        </label>
-        <p id="cache-info" class="muted small">—</p>
-        <button id="btn-cache-clear" type="button" class="danger" data-i18n="cache.clear">🗑 Clear cache</button>
-        <span id="cache-feedback" class="muted small"></span>
-      </div>
-
-      <div class="system-block">
         <details id="logs-card">
           <summary><span class="h3-inline" data-i18n="logs.title">Logs</span></summary>
           <p class="muted small" data-i18n="logs.help">Recent events (newest first). Auto-purged after 14 days. Paste them here if something goes wrong.</p>
@@ -216,7 +216,7 @@
     <span id="save-feedback" class="muted"></span>
   </div>
 
-  <footer><p class="muted">v0.7.1 · LAN-only</p></footer>
+  <footer><p class="muted">v0.7.2 · LAN-only</p></footer>
 
   <script src="/static/app.js"></script>
 </body>
