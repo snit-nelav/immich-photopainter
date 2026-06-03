@@ -40,6 +40,10 @@
 
       <div class="tabs" role="tablist">
         <label class="tab">
+          <input type="radio" name="source-active" value="local">
+          <span data-i18n="source.local.tab">Local</span>
+        </label>
+        <label class="tab">
           <input type="radio" name="source-active" value="immich">
           <span>Immich</span>
         </label>
@@ -48,11 +52,25 @@
           <input type="radio" name="source-active" value="google">
           <span>Google Photos</span>
         </label>
-        <label class="tab">
-          <input type="radio" name="source-active" value="local">
-          <span>Local upload</span>
-        </label>
         -->
+      </div>
+
+      <div class="tab-panel" data-panel="local">
+        <p class="local-instruction" data-i18n="local.drop_hint">Drop photos here or click to browse</p>
+        <p class="muted small local-formats" data-i18n="local.formats">JPG · PNG · WEBP — max 50 MB each, auto-resized to fit the frame</p>
+        <div class="local-actions">
+          <button id="btn-local-select-all" type="button" data-i18n="local.select_all">☐ Select all</button>
+          <button id="btn-local-delete" type="button" class="danger" disabled data-i18n="local.delete">🗑 Delete</button>
+          <button id="btn-local-download" type="button" disabled data-i18n="local.download">⬇ Download</button>
+          <div id="storage-bar" class="storage-bar" title="">
+            <div id="storage-fill" class="storage-fill"></div>
+            <span id="storage-label" class="storage-label">—</span>
+          </div>
+        </div>
+        <div id="drop-zone" class="drop-zone">
+          <input type="file" id="local-file-input" multiple accept="image/jpeg,image/png,image/webp" hidden>
+          <div id="local-grid" class="local-grid"></div>
+        </div>
       </div>
 
       <div class="tab-panel active" data-panel="immich">
@@ -211,12 +229,25 @@
     </section>
   </main>
 
+  <div id="upload-overlay" class="hidden">
+    <div class="overlay-card">
+      <h3 data-i18n="local.upload.title">Uploading photos…</h3>
+      <progress id="upload-progress" max="0" value="0"></progress>
+      <p>
+        <b id="upload-done">0</b> <span data-i18n="local.upload.uploaded">uploaded</span>,
+        <b id="upload-ignored">0</b> <span data-i18n="local.upload.ignored">ignored</span>
+      </p>
+      <ul id="upload-errors" class="upload-errors"></ul>
+      <button id="upload-close" type="button" class="hidden" data-i18n="actions.close">Close</button>
+    </div>
+  </div>
+
   <div id="save-bar">
     <button id="btn-save" class="big" data-i18n="save" disabled>💾 Save configuration</button>
     <span id="save-feedback" class="muted"></span>
   </div>
 
-  <footer><p class="muted">v0.7.3 · LAN-only</p></footer>
+  <footer><p class="muted">v0.8.0 · LAN-only</p></footer>
 
   <script src="/static/app.js"></script>
 </body>

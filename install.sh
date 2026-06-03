@@ -65,13 +65,14 @@ chmod +x /opt/photopainter/refresh.sh
 chown -R "$USER_NAME:$USER_NAME" /opt/photopainter
 
 # --- 5. System directories ---
-# /var/lib/photopainter holds the refresh lock, the preview PNG, the history
-# and the last-status file (all on persistent storage so a reboot or a /tmp
-# wipe doesn't lose them).
-mkdir -p /etc/photopainter /var/lib/photopainter /var/log/photopainter \
-         /var/cache/photopainter
+# /var/lib/photopainter holds the refresh lock, the preview PNG, the history,
+# the last-status file and the per-asset last_seen map. /var/lib/photopainter/local
+# holds photos uploaded via the Local source tab. All persistent storage so a
+# reboot or a /tmp wipe doesn't lose them.
+mkdir -p /etc/photopainter /var/lib/photopainter /var/lib/photopainter/local \
+         /var/log/photopainter /var/cache/photopainter
 chown "$USER_NAME:$USER_NAME" /etc/photopainter /var/lib/photopainter \
-    /var/log/photopainter /var/cache/photopainter
+    /var/lib/photopainter/local /var/log/photopainter /var/cache/photopainter
 
 # --- 6. Initial config (do not overwrite) ---
 if [[ ! -f /etc/photopainter/config.yaml ]]; then

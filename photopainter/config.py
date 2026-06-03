@@ -25,9 +25,16 @@ class ImmichConfig(BaseModel):
         return v.rstrip("/")
 
 
+class LocalConfig(BaseModel):
+    # Where photos uploaded via the Local tab live on disk. Created by install.sh
+    # and owned by the photopainter user.
+    path: Path = Path("/var/lib/photopainter/local")
+
+
 class SourcesConfig(BaseModel):
-    active: str = "immich"
+    active: Literal["immich", "local"] = "immich"
     immich: ImmichConfig
+    local: LocalConfig = Field(default_factory=LocalConfig)
 
 
 class DisplayConfig(BaseModel):

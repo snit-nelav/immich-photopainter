@@ -176,6 +176,152 @@ fieldset legend { font-size: 0.85rem; color: var(--muted); padding: 0 0.5rem; }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 
+/* Local-upload tab — the drop zone is *also* the photo grid container.
+   It has a fixed height and scrolls internally so the whole card stays
+   manageable even with hundreds of photos. Dropping anywhere inside the
+   zone (over the hint when empty, over the thumbs when full) triggers
+   the upload. */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  background: #faf9f4;
+  height: 460px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.drop-zone:hover { background: #f3f1e6; }
+.drop-zone.dragging {
+  border-color: var(--accent);
+  background: #f0f7ff;
+}
+.local-instruction {
+  margin: 0 0 0.15rem;
+  font-weight: 500;
+  color: var(--fg);
+}
+.local-formats { margin: 0 0 0.75rem; }
+
+.local-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0 0 0.75rem;
+}
+.local-actions button { margin: 0; font-size: 0.85rem; }
+
+/* SD-card storage bar: shows used / total of the partition holding the
+   upload dir. Goes red when usage exceeds STORAGE_WARN_THRESHOLD (85%). */
+.storage-bar {
+  position: relative;
+  flex: 1;
+  min-width: 140px;
+  height: 1.6rem;
+  margin-left: auto;
+  background: #efece1;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.storage-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 0.2s, background 0.2s;
+}
+.storage-fill.warn { background: var(--danger); }
+.storage-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  color: var(--fg);
+  font-weight: 500;
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+}
+
+.local-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+}
+.local-cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: #efece1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+}
+.local-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.local-cell .check {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  color: transparent;
+  transition: background 0.1s, color 0.1s;
+}
+.local-cell.selected { outline: 3px solid var(--accent); outline-offset: -3px; }
+.local-cell.selected .check {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* Upload progress overlay */
+#upload-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.overlay-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.75rem;
+  min-width: 320px;
+  max-width: 460px;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.overlay-card h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.overlay-card progress { width: 100%; height: 0.8rem; margin: 0.5rem 0 0.25rem; }
+.upload-errors {
+  text-align: left;
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  max-height: 140px;
+  overflow-y: auto;
+}
+.upload-errors li { margin: 0.1rem 0; }
+.overlay-card button { margin: 0.75rem 0 0; }
+
 /* Collapsible card wrapper — used on every section except "Last cycle status". */
 .card-fold > summary {
   list-style: none;

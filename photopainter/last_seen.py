@@ -1,10 +1,16 @@
-"""Per-asset last-seen timestamps, used to weight the random pick away from
-recently-shown photos and towards photos that have never been displayed.
+"""Per-asset last-seen timestamps, sliced by source context.
 
-Stored as a plain JSON map `{asset_id: iso_timestamp_utc}`. The file grows as
-new photos are shown and orphan entries (assets no longer in the album) are
-left as-is — they are simply ignored at weighting time because they don't
-appear in the candidate pool.
+Each *slot* (one source, or one Immich album) keeps its own
+`{asset_id: iso_timestamp}` map inside a single JSON file. The slot key is
+derived from the running config:
+
+    "local"                          for the Local source
+    "immich:<album_uuid>"            for a given Immich album
+
+Switching source or album doesn't wipe anything — the new slot simply loads
+(empty if first time) and the previous slots stay on disk, so the user can
+flip back and forth between Local and Immich every week without losing the
+weighted-random history on either side.
 """
 from __future__ import annotations
 
@@ -17,11 +23,25 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def slot_key(source_active: str, immich_album_id: str = "") -> str:
+    """Return a stable key identifying the current photo context.
+    Used to namespace the last-seen history so each (source, album)
+    keeps its own weighted-random state."""
+    if source_active == "immich":
+        return f"immich:{immich_album_id}"
+    return source_active  # "local" today, future "google:<id>" later
+
+
 class LastSeen:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, slot: str) -> None:
         self.path = path
-        self._seen: dict[str, datetime] = {}
+        self.slot = slot
+        self._slots: dict[str, dict[str, datetime]] = {}
         self._load()
+
+    @property
+    def _seen(self) -> dict[str, datetime]:
+        return self._slots.setdefault(self.slot, {})
 
     def _load(self) -> None:
         if not self.path.exists():
@@ -29,29 +49,38 @@ class LastSeen:
             return
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
-            entries = raw.get("entries", {}) if isinstance(raw, dict) else {}
-            for aid, ts in entries.items():
-                try:
-                    self._seen[aid] = datetime.fromisoformat(ts)
-                except (TypeError, ValueError):
-                    continue
-            logger.debug("last_seen: loaded %d entries", len(self._seen))
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning("last_seen: file unreadable (%s), resetting to empty", exc)
-            self._seen = {}
+            return
+        slots_raw = raw.get("slots") if isinstance(raw, dict) else None
+        # Tolerate the legacy single-slot format ({entries: {...}}). We don't
+        # know which context those entries belonged to, so we drop them — the
+        # cost is one or two cycles of "rediscovery" before the weighting
+        # kicks back in.
+        if not isinstance(slots_raw, dict):
+            logger.info("last_seen: legacy format or unrecognised payload, starting empty")
+            return
+        for k, entries in slots_raw.items():
+            if not isinstance(entries, dict):
+                continue
+            slot: dict[str, datetime] = {}
+            for aid, ts in entries.items():
+                try:
+                    slot[aid] = datetime.fromisoformat(ts)
+                except (TypeError, ValueError):
+                    continue
+            self._slots[k] = slot
+        logger.debug("last_seen: loaded %d slot(s); active slot %s has %d entries",
+                     len(self._slots), self.slot, len(self._seen))
 
     def record(self, asset_id: str, now: datetime | None = None) -> None:
         self._seen[asset_id] = now or datetime.now(timezone.utc)
         self._persist()
 
     def clear(self) -> None:
-        self._seen = {}
-        # Remove the file outright so the next cycle treats every photo as
-        # never-seen (uniform priority pick), giving the new album a fresh start.
-        try:
-            self.path.unlink(missing_ok=True)
-        except OSError as exc:
-            logger.warning("last_seen: could not delete %s (%s)", self.path, exc)
+        """Empty the current slot. Other slots on disk are kept untouched."""
+        self._slots[self.slot] = {}
+        self._persist()
 
     def has(self, asset_id: str) -> bool:
         return asset_id in self._seen
@@ -60,7 +89,6 @@ class LastSeen:
         ts = self._seen.get(asset_id)
         if ts is None:
             return None
-        # Tolerate naive timestamps from older versions of the file.
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
         return max(0.0, (now - ts).total_seconds() / 86400.0)
@@ -89,7 +117,10 @@ class LastSeen:
         tmp = self.path.with_suffix(self.path.suffix + ".tmp")
         payload = {
             "updated_at": datetime.now(timezone.utc).isoformat(),
-            "entries": {aid: ts.isoformat() for aid, ts in self._seen.items()},
+            "slots": {
+                key: {aid: ts.isoformat() for aid, ts in entries.items()}
+                for key, entries in self._slots.items()
+            },
         }
         tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         tmp.replace(self.path)

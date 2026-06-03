@@ -11,19 +11,31 @@ config and triggers an automatic refresh according to which fields changed:
 """
 from __future__ import annotations
 
+import io
 import json
 import logging
+import re
+import shutil
 import subprocess
+import zipfile
 from pathlib import Path
 
 import requests
-from flask import Flask, jsonify, request, send_file, send_from_directory, abort
+from flask import Flask, Response, jsonify, request, send_file, send_from_directory, abort
+from PIL import Image, ImageOps
 
 from photopainter.config import load_config, dump_config, Config, ALLOWED_INTERVALS, ALLOWED_ROTATIONS
 from photopainter.cache import AssetCache, gb_to_bytes
 from photopainter import events_log
-from photopainter.last_seen import LastSeen
 from photopainter.scheduler import read_last_status
+
+# Local-upload tab settings. Files larger than this are rejected; images bigger
+# than MAX_DIM on either side are downscaled (the e-paper panel is 800×480,
+# 4× gives plenty of headroom for the enhancement pipeline).
+LOCAL_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+LOCAL_MAX_DIM = 3200
+LOCAL_ALLOWED_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+LOCAL_SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 logger = logging.getLogger(__name__)
 
@@ -43,18 +55,6 @@ def _mask_secrets(data: dict) -> dict:
         if ak:
             data["sources"]["immich"]["api_key"] = ak[:4] + "***" + ak[-4:] if len(ak) > 8 else "***"
     return data
-
-
-def _source_context_changed(old: dict, new: dict) -> bool:
-    """True if the user switched source or picked a different album within the
-    same source — both reset the universe of photos, so the per-asset last_seen
-    history should be wiped to give the new context a fresh, uniform first cycle."""
-    old_im = old.get("sources", {}).get("immich", {})
-    new_im = new.get("sources", {}).get("immich", {})
-    return (
-        old.get("sources", {}).get("active") != new.get("sources", {}).get("active")
-        or old_im.get("album_id") != new_im.get("album_id")
-    )
 
 
 def _categorize_change(old: dict, new: dict) -> str:
@@ -113,8 +113,71 @@ def _spawn_refresh(extra_args: list[str]) -> tuple[int | None, str | None]:
     return proc.pid, None
 
 
+def _local_dir() -> Path:
+    """Resolve and ensure the local-upload directory exists."""
+    d = load_config(CONFIG_PATH).sources.local.path
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _safe_local_name(name: str) -> str:
+    """Sanitize a user-supplied filename and normalise it to .jpg.
+    Returns an empty string if nothing usable remains."""
+    stem = Path(name).stem
+    stem = LOCAL_SAFE_NAME_RE.sub("_", stem).strip("._")
+    return f"{stem}.jpg" if stem else ""
+
+
+def _list_local_files(directory: Path) -> list[dict]:
+    out: list[dict] = []
+    if not directory.exists():
+        return out
+    for p in sorted(directory.iterdir()):
+        if not p.is_file() or p.suffix.lower() not in {".jpg", ".jpeg"}:
+            continue
+        st = p.stat()
+        out.append({"name": p.name, "size": st.st_size, "mtime": int(st.st_mtime)})
+    return out
+
+
+def _save_upload(raw: bytes, original_name: str, directory: Path) -> tuple[str | None, str | None]:
+    """Validate, resize and save one uploaded photo.
+    Returns (saved_name, None) on success, (None, reason) on rejection.
+    Duplicate filenames are reported as 'already_exists' and not re-saved."""
+    ext = Path(original_name).suffix.lower()
+    if ext not in LOCAL_ALLOWED_EXTS:
+        return None, "unsupported_format"
+    if len(raw) > LOCAL_MAX_UPLOAD_BYTES:
+        return None, "too_large"
+    safe = _safe_local_name(original_name)
+    if not safe:
+        return None, "invalid_filename"
+    # Duplicate-by-filename check first, before we burn CPU resizing.
+    directory.mkdir(parents=True, exist_ok=True)
+    if (directory / safe).exists():
+        return None, "already_exists"
+    try:
+        Image.open(io.BytesIO(raw)).verify()
+        img = Image.open(io.BytesIO(raw))
+        img = ImageOps.exif_transpose(img)
+    except Exception as exc:
+        return None, f"invalid_image: {exc.__class__.__name__}"
+    if max(img.size) > LOCAL_MAX_DIM:
+        img.thumbnail((LOCAL_MAX_DIM, LOCAL_MAX_DIM), Image.LANCZOS)
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    try:
+        img.save(directory / safe, "JPEG", quality=90, optimize=True)
+    except OSError as exc:
+        return None, f"save_failed: {exc}"
+    return safe, None
+
+
 def create_app() -> Flask:
     app = Flask(__name__, static_folder=None)
+    # Flask caps the body size of a single request — give one upload enough room
+    # plus a small headroom for multipart boundaries.
+    app.config["MAX_CONTENT_LENGTH"] = LOCAL_MAX_UPLOAD_BYTES + 2 * 1024 * 1024
 
     @app.route("/")
     def index():
@@ -166,9 +229,9 @@ def create_app() -> Flask:
         dump_config(new_cfg, CONFIG_PATH)
         logger.info("config updated via UI")
 
-        if _source_context_changed(old_snapshot, merged):
-            LastSeen(new_cfg.history.path.parent / "last_seen.json").clear()
-            logger.info("last_seen wiped (source or album changed)")
+        # last_seen is sliced per (source, album_id) inside last_seen.json,
+        # so a source switch or an album change just routes to a different
+        # slot — nothing to wipe here.
 
         category = _categorize_change(old_snapshot, merged)
         # Caller may force a redraw even when nothing changed (used by the
@@ -193,11 +256,99 @@ def create_app() -> Flask:
         return jsonify({
             "active": load_config(CONFIG_PATH).sources.active,
             "available": [
+                {"id": "local", "name": "Local upload", "implemented": True},
                 {"id": "immich", "name": "Immich", "implemented": True},
                 {"id": "google_photos", "name": "Google Photos", "implemented": False},
-                {"id": "local_directory", "name": "Local upload", "implemented": False},
             ],
         })
+
+    @app.get("/api/local/list")
+    def local_list():
+        directory = _local_dir()
+        files = _list_local_files(directory)
+        total = sum(f["size"] for f in files)
+        # Disk usage of the partition holding the upload dir — used by the UI
+        # storage bar so the user can see how full the SD card is before piling
+        # on more photos.
+        usage = shutil.disk_usage(directory)
+        return jsonify({
+            "files": files, "total_size": total, "count": len(files),
+            "disk": {"total": usage.total, "used": usage.used, "free": usage.free},
+        })
+
+    @app.post("/api/local/upload")
+    def local_upload():
+        directory = _local_dir()
+        f = request.files.get("file")
+        if f is None or not f.filename:
+            return jsonify({"uploaded": None, "reason": "no_file"}), 400
+        raw = f.read()
+        saved, reason = _save_upload(raw, f.filename, directory)
+        if saved is None:
+            return jsonify({"uploaded": None, "reason": reason or "unknown", "original": f.filename}), 200
+        return jsonify({"uploaded": saved, "reason": None, "original": f.filename}), 200
+
+    @app.get("/api/local/files/<path:filename>")
+    def local_get_file(filename: str):
+        directory = _local_dir()
+        # Prevent path traversal — the filename must resolve inside `directory`.
+        safe = Path(filename).name
+        if safe != filename or not safe:
+            abort(400)
+        target = directory / safe
+        if not target.is_file():
+            abort(404)
+        as_attachment = request.args.get("download") == "1"
+        return send_file(target, mimetype="image/jpeg", as_attachment=as_attachment, download_name=safe)
+
+    @app.post("/api/local/delete")
+    def local_delete():
+        directory = _local_dir()
+        body = request.get_json(force=True, silent=False) or {}
+        names = body.get("filenames") or []
+        if not isinstance(names, list):
+            return jsonify({"error": "filenames must be a list"}), 400
+        removed: list[str] = []
+        for raw_name in names:
+            if not isinstance(raw_name, str):
+                continue
+            safe = Path(raw_name).name
+            if safe != raw_name or not safe:
+                continue
+            target = directory / safe
+            if target.is_file():
+                try:
+                    target.unlink()
+                    removed.append(safe)
+                except OSError as exc:
+                    logger.warning("local delete failed for %s: %s", safe, exc)
+        return jsonify({"removed": removed, "count": len(removed)})
+
+    @app.post("/api/local/download_bulk")
+    def local_download_bulk():
+        directory = _local_dir()
+        body = request.get_json(force=True, silent=False) or {}
+        names = body.get("filenames") or []
+        if not isinstance(names, list) or not names:
+            return jsonify({"error": "filenames must be a non-empty list"}), 400
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+            # ZIP_STORED (no recompression): JPEGs are already compressed, so
+            # Deflate would only burn CPU on the Pi for ~0% gain.
+            for raw_name in names:
+                if not isinstance(raw_name, str):
+                    continue
+                safe = Path(raw_name).name
+                if safe != raw_name or not safe:
+                    continue
+                target = directory / safe
+                if target.is_file():
+                    zf.write(target, arcname=safe)
+        buf.seek(0)
+        return send_file(
+            buf, mimetype="application/zip",
+            as_attachment=True, download_name="photopainter-local.zip",
+        )
 
     @app.get("/api/sources/immich/albums")
     def list_immich_albums():

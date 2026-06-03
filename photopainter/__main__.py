@@ -24,12 +24,13 @@ from photopainter.config import load_config, Config
 from photopainter import events_log
 from photopainter.events_log import log_event
 from photopainter.history import History
-from photopainter.last_seen import LastSeen
+from photopainter.last_seen import LastSeen, slot_key
 from photopainter.scheduler import should_refresh_now, write_last_status
 from photopainter import image_processor
 from photopainter.display import Display, WaveshareDisplay, MockDisplay
 from photopainter.sources.base import Asset
 from photopainter.sources.immich import ImmichSource
+from photopainter.sources.local import LocalSource
 from photopainter.sources.cached import CachingSource
 from photopainter.cache import AssetCache, gb_to_bytes
 
@@ -74,18 +75,29 @@ def acquire_lock() -> int:
         raise
 
 
-def build_source(cfg: Config) -> CachingSource:
-    if cfg.sources.active != "immich":
-        raise NotImplementedError(f"source '{cfg.sources.active}' not implemented yet")
-    icfg = cfg.sources.immich
-    upstream = ImmichSource(
-        base_url=icfg.base_url,
-        api_key=icfg.api_key,
-        album_id=icfg.album_id,
-        timeout_seconds=icfg.timeout_seconds,
-    )
-    cache = AssetCache(cfg.cache.path, gb_to_bytes(cfg.cache.max_size_gb))
-    return CachingSource(upstream, cache)
+def build_source(cfg: Config):
+    """Return a source that quacks like CachingSource (exposes `fallback_used`).
+
+    Local uploads need no caching layer (the file is already on disk), so we
+    return the LocalSource directly with a synthetic fallback_used=False — the
+    downstream code only checks this flag, never the cache itself.
+    """
+    if cfg.sources.active == "local":
+        src = LocalSource(cfg.sources.local.path)
+        # Duck-type the attribute expected by cycle() and _resolve_error_badge.
+        src.fallback_used = False  # type: ignore[attr-defined]
+        return src
+    if cfg.sources.active == "immich":
+        icfg = cfg.sources.immich
+        upstream = ImmichSource(
+            base_url=icfg.base_url,
+            api_key=icfg.api_key,
+            album_id=icfg.album_id,
+            timeout_seconds=icfg.timeout_seconds,
+        )
+        cache = AssetCache(cfg.cache.path, gb_to_bytes(cfg.cache.max_size_gb))
+        return CachingSource(upstream, cache)
+    raise NotImplementedError(f"source '{cfg.sources.active}' not implemented yet")
 
 
 def _canvas_size(cfg: Config) -> tuple[int, int]:
@@ -162,7 +174,10 @@ def _try_process(
 def cycle(cfg: Config, display: Display, force_asset: str | None = None) -> int:
     log = logging.getLogger("photopainter.cycle")
     history = History(cfg.history.path, cfg.history.max_size)
-    last_seen = LastSeen(cfg.history.path.parent / "last_seen.json")
+    last_seen = LastSeen(
+        cfg.history.path.parent / "last_seen.json",
+        slot_key(cfg.sources.active, cfg.sources.immich.album_id),
+    )
     timings: dict[str, float] = {}
 
     t = time.perf_counter()
@@ -189,20 +204,24 @@ def cycle(cfg: Config, display: Display, force_asset: str | None = None) -> int:
     if force_asset:
         cands = [a for a in images if a.id == force_asset]
         if not cands:
-            log.error("forced asset %s not found", force_asset)
-            write_last_status(LAST_STATUS_PATH, force_asset, timings, "force_asset_not_found")
-            return 3
-        chosen = cands[0]
-        t = time.perf_counter()
-        result = _try_process(source, cfg, chosen, canvas_w, canvas_h)
-        timings.setdefault("download", 0.0)
-        timings.setdefault("process", time.perf_counter() - t)
-        if result is None:
-            log.error("forced asset %s could not be processed", force_asset)
-            write_last_status(LAST_STATUS_PATH, force_asset, timings, "force_asset_process_failed")
-            return 4
-        _, rendered = result
-    else:
+            # The "redraw" path (rotation / display mode / enhancement edit) asks
+            # to re-render the same asset that was last shown. After a source
+            # switch (e.g. Immich → Local), the last asset id is no longer in
+            # the current pool; fall back to a fresh pick instead of failing.
+            log.warning("forced asset %s not in current source, falling back to weighted pick", force_asset)
+            force_asset = None
+        else:
+            chosen = cands[0]
+            t = time.perf_counter()
+            result = _try_process(source, cfg, chosen, canvas_w, canvas_h)
+            timings.setdefault("download", 0.0)
+            timings.setdefault("process", time.perf_counter() - t)
+            if result is None:
+                log.error("forced asset %s could not be processed", force_asset)
+                write_last_status(LAST_STATUS_PATH, force_asset, timings, "force_asset_process_failed")
+                return 4
+            _, rendered = result
+    if not force_asset and rendered is None:
         # Try up to MAX_PROCESS_RETRIES different assets if download/decode fails.
         for attempt in range(1, MAX_PROCESS_RETRIES + 1):
             if len(images) > cfg.history.max_size:

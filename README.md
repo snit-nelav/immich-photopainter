@@ -4,7 +4,7 @@
   <img src="docs/demo.jpg" alt="photopainter in the wild" width="450">
 </p>
 
-> 🖼️ A plug-and-play e-paper photo frame for the **Waveshare PhotoPainter ACCE** kit (7.3″ Spectra 6 color e-paper + Raspberry Pi Zero 2 W) that pulls random photos from one of your **Immich** albums on the LAN.
+> 🖼️ A plug-and-play e-paper photo frame for the **Waveshare PhotoPainter ACCE** kit (7.3″ Spectra 6 color e-paper + Raspberry Pi Zero 2 W) that displays random photos from one of your **Immich** albums on the LAN, or from a **Local upload** library you drop directly into the web UI.
 
 Everything — album, refresh frequency, orientation, display mode, language — is set from a **web UI hosted on the Pi**. No SSH, no YAML files to edit.
 
@@ -18,12 +18,13 @@ Everything — album, refresh frequency, orientation, display mode, language —
 
 ## ✨ Features
 
-- 🎲 **Smart random photo** from any Immich album, refreshed every **5–60 min** (configurable). Never-seen photos go first; once every photo has appeared at least once, the draw is weighted by *days since last seen* so an album of 500 photos cycles broadly without clones every other day. The per-asset history is wiped automatically when you switch source or pick a different album.
+- 🗂️ **Two photo sources** — an **Immich** album on your LAN, or a **Local** library you upload through the web UI (drag-and-drop, JPG / PNG / WEBP, auto-resized to fit the frame). Switch between them in one click; each source keeps its own state, no mixing.
+- 🎲 **Smart random photo** refreshed every **5–60 min** (configurable). Never-seen photos go first; once every photo has appeared at least once, the draw is weighted by *days since last seen* so an album of 500 photos cycles broadly without clones every other day. Each `(source, album)` keeps its own weighted-random history, so switching back and forth between Local and Immich doesn't reset anything.
 - 🔄 **Rotation 0° / 90° / 180° / 270°** — hang the frame portrait, landscape, upside-down… the canvas adapts.
 - 🎨 **Per-orientation display modes** — **fill** (crop to frame), **square** (1:1 centered), or **original** (full photo with bands). Bands color: white or black.
 - 🎚️ **Image enhancement** sliders (brightness / saturation / sharpness) with a **Live preview** button to iterate on the panel without leaving the UI.
 - 🗓️ **Weekly activity calendar (7×24)** — click any hour-cell to toggle it on/off, click a day label to flip the whole row, click an hour label to flip the whole column. Silent slots cost nothing on e-paper.
-- 💾 **Per-source local cache (1–10 GB)** with nightly auto-purge + a manual **Clear cache** button — if the source is offline, the frame keeps cycling from what it already has. Each source keeps its own cache (no mixing).
+- 💾 **Per-source local cache (1–10 GB)** with nightly auto-purge + a manual **Clear cache** button — if Immich is offline, the frame keeps cycling from what it already has. The Local source needs no cache (its photos already live on the Pi).
 - 🚨 **At-a-glance error badge** in the bottom-left corner of the photo: a wifi-off pictogram when the radio link is down, an alert-triangle for any other problem (Immich unreachable, crashes, …). Vanishes automatically once a cycle succeeds again.
 - 📊 **Status block** with the photo's filename + EXIF capture date, plus a collapsible **activity log** (structured events, paginated, one-click clear) for easy troubleshooting.
 - 🛠️ **Remote reboot / shutdown** of the Pi from the UI — no SSH needed.
@@ -42,7 +43,7 @@ Everything — album, refresh frequency, orientation, display mode, language —
 | 🥧 | **Raspberry Pi Zero 2 W** (64-bit, 512 MB RAM) |
 | 💾 | **microSD card ≥ 8 GB** from a real brand (SanDisk, Samsung, Kingston, Lexar) |
 | 🔌 | A **USB-C charger** (a phone charger works) |
-| 🏠 | A self-hosted **Immich** server reachable on your LAN |
+| 🏠 | A self-hosted **Immich** server reachable on your LAN — *optional*, you can also just drag-and-drop photos into the Local tab |
 | 💻 | A computer with **Raspberry Pi Imager** installed |
 
 ---
@@ -92,7 +93,10 @@ Open **`http://<your-host>.local/`** (or `http://<pi-ip>/`) on any device on you
 
 1. 📊 **Last cycle status** (always visible) — shows the filename + EXIF capture date of the current photo, a thumbnail preview, and a **↻ Refresh now** button.
 
-2. 🖼️ **Photo album** — the section is organized in **source tabs** (only **Immich** for now, more coming). Each tab has a **radio button** that becomes the active source on save. Inside the Immich tab, fill in the **Immich URL**, the **API key** (a built-in tutorial tells you which 3 permissions to check: `album.read`, `asset.read`, `asset.download`), pick an **Album** from the dropdown that auto-fills after URL + key are saved, and adjust the per-source **Local cache** slider (1–10 GB) + **Clear cache** button at the bottom of the tab. Each source keeps its own cache.
+2. 🖼️ **Photo album** — the section is organized in **source tabs**. Each tab has a **radio button** that becomes the active source on save; switching tabs flips the radio and turns the Save bar red until you confirm.
+
+   - **Local** (default tab) — a drag-and-drop area where you drop photos (JPG / PNG / WEBP, max 50 MB each, auto-resized to fit the frame). The library shows as a scrollable 4-column grid; click thumbnails to multi-select, then use **🗑 Delete** to remove them or **⬇ Download** to grab a ZIP of the selection. A storage bar in the toolbar shows how full the SD card is (turns red above 85 %). Duplicates (same filename) are skipped, not re-uploaded. No cache to configure — the photos already live on the Pi.
+   - **Immich** — fill in the **Immich URL**, the **API key** (built-in tutorial lists the 3 permissions: `album.read`, `asset.read`, `asset.download`), and pick an **Album** from the dropdown that auto-fills after URL + key are saved. At the bottom, a **Local cache** slider (1–10 GB) + **Clear cache** button — kept *per source* so a future Google Photos tab won't mix with this one.
 
 3. 🗓️ **Schedule**
    - **Refresh frequency** — `5 / 10 / 15 / 20 / 30 / 45 / 60 min`.

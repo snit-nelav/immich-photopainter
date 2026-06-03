@@ -93,6 +93,27 @@ const I18N = {
     "cache.clear": "🗑 Clear cache",
     "cache.clear_confirm": "Delete every cached photo? Next cycle will re-download from Immich.",
     "cache.cleared": "cache cleared ({n} files, {mb} MB)",
+    "source.local.tab": "Local",
+    "local.drop_hint": "Drop photos here or click to browse",
+    "local.formats": "JPG · PNG · WEBP — max 50 MB each, auto-resized to fit the frame",
+    "local.select_all": "☐ Select all",
+    "local.deselect_all": "☒ Deselect all",
+    "local.delete": "🗑 Delete",
+    "local.download": "⬇ Download",
+    "local.empty": "No photos yet — drop some above.",
+    "local.count": "{selected}/{total}",
+    "local.delete_confirm": "Delete {n} photo(s)?",
+    "local.upload.title": "Uploading photos…",
+    "local.upload.uploaded": "uploaded",
+    "local.upload.ignored": "ignored",
+    "local.upload.reason.unsupported_format": "unsupported format",
+    "local.upload.reason.too_large": "over 50 MB",
+    "local.upload.reason.invalid_image": "not a valid image",
+    "local.upload.reason.invalid_filename": "invalid filename",
+    "local.upload.reason.already_exists": "already in library",
+    "local.upload.reason.save_failed": "save failed",
+    "local.upload.reason.unknown": "rejected",
+    "actions.close": "Close",
     "save": "💾 Save configuration",
     "fb.saved": "✓ saved",
     "fb.saving": "saving…",
@@ -197,6 +218,27 @@ const I18N = {
     "cache.clear": "🗑 Vider le cache",
     "cache.clear_confirm": "Supprimer toutes les photos en cache ? Le prochain cycle re-téléchargera depuis Immich.",
     "cache.cleared": "cache vidé ({n} fichiers, {mb} Mo)",
+    "source.local.tab": "Local",
+    "local.drop_hint": "Glisse des photos ici ou clique pour parcourir",
+    "local.formats": "JPG · PNG · WEBP — max 50 Mo par photo, auto-redimensionnées pour le cadre",
+    "local.select_all": "☐ Tout sélectionner",
+    "local.deselect_all": "☒ Tout désélectionner",
+    "local.delete": "🗑 Supprimer",
+    "local.download": "⬇ Télécharger",
+    "local.empty": "Aucune photo pour l'instant — dépose-en ci-dessus.",
+    "local.count": "{selected}/{total}",
+    "local.delete_confirm": "Supprimer {n} photo(s) ?",
+    "local.upload.title": "Envoi des photos…",
+    "local.upload.uploaded": "envoyées",
+    "local.upload.ignored": "ignorées",
+    "local.upload.reason.unsupported_format": "format non pris en charge",
+    "local.upload.reason.too_large": "plus de 50 Mo",
+    "local.upload.reason.invalid_image": "image invalide",
+    "local.upload.reason.invalid_filename": "nom de fichier invalide",
+    "local.upload.reason.already_exists": "déjà présente",
+    "local.upload.reason.save_failed": "écriture échouée",
+    "local.upload.reason.unknown": "rejetée",
+    "actions.close": "Fermer",
     "save": "💾 Enregistrer la configuration",
     "fb.saved": "✓ enregistré",
     "fb.saving": "enregistrement…",
@@ -503,11 +545,212 @@ async function loadAll() {
   renderStatus(await jget("/api/status"));
   loadCacheInfo();
   await loadAlbums();
+  await loadLocalFiles();
   showPreview();
   loadLogs({ append: false });
 
   initialSnapshot = snapshotForm();
   updateDirty();
+}
+
+// ----- Local tab (upload / select / delete / download bulk) -----
+const localState = {
+  files: [],            // [{name, size, mtime}]
+  selected: new Set(),  // Set<string>
+  disk: null,           // {total, used, free}
+};
+const STORAGE_WARN_THRESHOLD = 0.85;  // turn the SD bar red above 85% used
+
+async function loadLocalFiles() {
+  try {
+    const r = await jget("/api/local/list");
+    localState.files = r.files || [];
+    localState.disk = r.disk || null;
+    // Drop selection entries for files that no longer exist server-side.
+    for (const name of [...localState.selected]) {
+      if (!localState.files.find(f => f.name === name)) localState.selected.delete(name);
+    }
+    renderLocalGrid();
+  } catch (e) {
+    console.warn("loadLocalFiles failed", e);
+  }
+}
+
+function renderLocalGrid() {
+  const grid = $("#local-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  if (localState.files.length === 0) {
+    grid.classList.add("hidden");
+  } else {
+    grid.classList.remove("hidden");
+    for (const f of localState.files) {
+      const cell = document.createElement("div");
+      cell.className = "local-cell" + (localState.selected.has(f.name) ? " selected" : "");
+      cell.dataset.name = f.name;
+      cell.title = `${f.name}\n${fmtBytes(f.size)}`;
+      cell.innerHTML = `<img src="/api/local/files/${encodeURIComponent(f.name)}" alt="" loading="lazy" draggable="false"><div class="check">✓</div>`;
+      cell.addEventListener("click", (e) => {
+        // Cells sit inside the drop-zone; let the click bubble there and the
+        // file picker opens. Stop it here so a select stays a select.
+        e.stopPropagation();
+        toggleLocalCell(f.name);
+      });
+      grid.appendChild(cell);
+    }
+  }
+  updateLocalActions();
+}
+
+function toggleLocalCell(name) {
+  if (localState.selected.has(name)) localState.selected.delete(name);
+  else localState.selected.add(name);
+  renderLocalGrid();
+}
+
+function updateLocalActions() {
+  const n = localState.selected.size;
+  const total = localState.files.length;
+  const allSelected = total > 0 && n === total;
+  let label;
+  if (allSelected) label = t("local.deselect_all");
+  else if (n > 0)  label = t("local.select_all") + " · " + n + "/" + total;
+  else             label = t("local.select_all");
+  $("#btn-local-select-all").textContent = label;
+  $("#btn-local-delete").disabled = n === 0;
+  $("#btn-local-download").disabled = n === 0;
+  updateStorageBar();
+}
+
+function updateStorageBar() {
+  const fill = $("#storage-fill");
+  const label = $("#storage-label");
+  const bar = $("#storage-bar");
+  if (!fill || !label || !bar) return;
+  if (!localState.disk || !localState.disk.total) {
+    fill.style.width = "0%";
+    label.textContent = "—";
+    bar.title = "";
+    return;
+  }
+  const { used, total, free } = localState.disk;
+  const ratio = total ? used / total : 0;
+  fill.style.width = (ratio * 100).toFixed(1) + "%";
+  fill.classList.toggle("warn", ratio >= STORAGE_WARN_THRESHOLD);
+  label.textContent = `${fmtBytes(used)} / ${fmtBytes(total)}`;
+  bar.title = `${fmtBytes(free)} free · ${(ratio * 100).toFixed(0)}% used`;
+}
+
+function toggleLocalSelectAll() {
+  if (localState.selected.size === localState.files.length) localState.selected.clear();
+  else localState.files.forEach(f => localState.selected.add(f.name));
+  renderLocalGrid();
+}
+
+async function deleteLocalSelection() {
+  const names = [...localState.selected];
+  if (names.length === 0) return;
+  if (!confirm(t("local.delete_confirm", { n: names.length }))) return;
+  await jpost("/api/local/delete", { filenames: names });
+  localState.selected.clear();
+  await loadLocalFiles();
+}
+
+async function downloadLocalSelection() {
+  const names = [...localState.selected];
+  if (names.length === 0) return;
+  if (names.length === 1) {
+    const a = document.createElement("a");
+    a.href = `/api/local/files/${encodeURIComponent(names[0])}?download=1`;
+    a.download = names[0];
+    document.body.appendChild(a); a.click(); a.remove();
+    return;
+  }
+  const r = await fetch("/api/local/download_bulk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filenames: names }),
+  });
+  if (!r.ok) { alert("download failed: " + r.status); return; }
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "photopainter-local.zip";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// ----- Upload (drag-and-drop + click) -----
+async function handleUploadFiles(fileList) {
+  if (!fileList || fileList.length === 0) return;
+  const overlay = $("#upload-overlay");
+  const progress = $("#upload-progress");
+  const doneEl = $("#upload-done");
+  const ignoredEl = $("#upload-ignored");
+  const errs = $("#upload-errors");
+  const close = $("#upload-close");
+  overlay.classList.remove("hidden");
+  close.classList.add("hidden");
+  progress.max = fileList.length;
+  progress.value = 0;
+  doneEl.textContent = "0";
+  ignoredEl.textContent = "0";
+  errs.innerHTML = "";
+  let done = 0, ignored = 0;
+  for (const file of fileList) {
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const r = await fetch("/api/local/upload", { method: "POST", body: fd });
+      const j = await r.json().catch(() => ({}));
+      if (j.uploaded) {
+        done++;
+      } else {
+        ignored++;
+        const reasonKey = "local.upload.reason." + (j.reason || "unknown").split(":")[0];
+        const reasonTxt = I18N[currentLang][reasonKey] || j.reason || "rejected";
+        const li = document.createElement("li");
+        li.textContent = `${file.name}: ${reasonTxt}`;
+        errs.appendChild(li);
+      }
+    } catch (e) {
+      ignored++;
+      const li = document.createElement("li");
+      li.textContent = `${file.name}: ${e.message}`;
+      errs.appendChild(li);
+    }
+    doneEl.textContent = String(done);
+    ignoredEl.textContent = String(ignored);
+    progress.value = done + ignored;
+  }
+  close.classList.remove("hidden");
+  await loadLocalFiles();
+}
+
+function setupLocalTab() {
+  const zone = $("#drop-zone");
+  const input = $("#local-file-input");
+  if (!zone || !input) return;
+  zone.addEventListener("click", () => input.click());
+  input.addEventListener("change", () => {
+    handleUploadFiles(input.files);
+    input.value = "";
+  });
+  ["dragenter", "dragover"].forEach(ev => zone.addEventListener(ev, e => {
+    e.preventDefault();
+    zone.classList.add("dragging");
+  }));
+  ["dragleave", "drop"].forEach(ev => zone.addEventListener(ev, e => {
+    e.preventDefault();
+    zone.classList.remove("dragging");
+  }));
+  zone.addEventListener("drop", e => {
+    if (e.dataTransfer && e.dataTransfer.files.length) handleUploadFiles(e.dataTransfer.files);
+  });
+  $("#btn-local-select-all").addEventListener("click", toggleLocalSelectAll);
+  $("#btn-local-delete").addEventListener("click", deleteLocalSelection);
+  $("#btn-local-download").addEventListener("click", downloadLocalSelection);
+  $("#upload-close").addEventListener("click", () => $("#upload-overlay").classList.add("hidden"));
 }
 
 // ----- Logs -----
@@ -699,6 +942,7 @@ $$('input[name="source-active"]').forEach(r => {
 });
 
 bindDirtyInputs();
+setupLocalTab();
 applyI18n();
 loadAll().catch(e => $("#status-body").textContent = t("fb.load_error", { err: e.message }));
 setInterval(() => jget("/api/status").then(renderStatus).catch(() => {}), 30000);
