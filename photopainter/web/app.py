@@ -22,6 +22,7 @@ from flask import Flask, jsonify, request, send_file, send_from_directory, abort
 from photopainter.config import load_config, dump_config, Config, ALLOWED_INTERVALS, ALLOWED_ROTATIONS
 from photopainter.cache import AssetCache, gb_to_bytes
 from photopainter import events_log
+from photopainter.last_seen import LastSeen
 from photopainter.scheduler import read_last_status
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,18 @@ def _mask_secrets(data: dict) -> dict:
         if ak:
             data["sources"]["immich"]["api_key"] = ak[:4] + "***" + ak[-4:] if len(ak) > 8 else "***"
     return data
+
+
+def _source_context_changed(old: dict, new: dict) -> bool:
+    """True if the user switched source or picked a different album within the
+    same source — both reset the universe of photos, so the per-asset last_seen
+    history should be wiped to give the new context a fresh, uniform first cycle."""
+    old_im = old.get("sources", {}).get("immich", {})
+    new_im = new.get("sources", {}).get("immich", {})
+    return (
+        old.get("sources", {}).get("active") != new.get("sources", {}).get("active")
+        or old_im.get("album_id") != new_im.get("album_id")
+    )
 
 
 def _categorize_change(old: dict, new: dict) -> str:
@@ -152,6 +165,10 @@ def create_app() -> Flask:
             return jsonify({"error": "validation_failed", "details": str(exc)}), 400
         dump_config(new_cfg, CONFIG_PATH)
         logger.info("config updated via UI")
+
+        if _source_context_changed(old_snapshot, merged):
+            LastSeen(new_cfg.history.path.parent / "last_seen.json").clear()
+            logger.info("last_seen wiped (source or album changed)")
 
         category = _categorize_change(old_snapshot, merged)
         # Caller may force a redraw even when nothing changed (used by the

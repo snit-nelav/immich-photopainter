@@ -24,6 +24,7 @@ from photopainter.config import load_config, Config
 from photopainter import events_log
 from photopainter.events_log import log_event
 from photopainter.history import History
+from photopainter.last_seen import LastSeen
 from photopainter.scheduler import should_refresh_now, write_last_status
 from photopainter import image_processor
 from photopainter.display import Display, WaveshareDisplay, MockDisplay
@@ -161,6 +162,7 @@ def _try_process(
 def cycle(cfg: Config, display: Display, force_asset: str | None = None) -> int:
     log = logging.getLogger("photopainter.cycle")
     history = History(cfg.history.path, cfg.history.max_size)
+    last_seen = LastSeen(cfg.history.path.parent / "last_seen.json")
     timings: dict[str, float] = {}
 
     t = time.perf_counter()
@@ -212,7 +214,12 @@ def cycle(cfg: Config, display: Display, force_asset: str | None = None) -> int:
             if not pool:
                 log.warning("no more candidate assets to try (after %d attempts)", attempt - 1)
                 break
-            candidate = random.choice(pool)
+            # Weighted pick: never-seen assets first (uniform), otherwise
+            # weight = days_since_last_seen + 1 (recent → small weight,
+            # forgotten → big weight). Falls back to uniform random the
+            # very first time the frame runs, since no asset is recorded yet.
+            chosen_id = last_seen.pick([a.id for a in pool])
+            candidate = next(a for a in pool if a.id == chosen_id)
             attempted_ids.add(candidate.id)
             log.info("attempt %d/%d: %s (%s)", attempt, MAX_PROCESS_RETRIES, candidate.id, candidate.filename or "n/a")
             t_attempt = time.perf_counter()
@@ -232,7 +239,7 @@ def cycle(cfg: Config, display: Display, force_asset: str | None = None) -> int:
                 log.error("no usable asset in cache either, giving up this cycle")
                 write_last_status(LAST_STATUS_PATH, "", timings, "image_failed_after_retries")
                 return 0
-            cache_id = random.choice(cache_pool)
+            cache_id = last_seen.pick(cache_pool)
             chosen = Asset(id=cache_id, type="IMAGE", filename="from_cache_fallback")
             t = time.perf_counter()
             try:
@@ -282,6 +289,7 @@ def cycle(cfg: Config, display: Display, force_asset: str | None = None) -> int:
             log.warning("preview save failed: %s", exc)
 
     history.add(chosen.id)
+    last_seen.record(chosen.id)
     status = "success_fallback" if source.fallback_used else "success"
     write_last_status(
         LAST_STATUS_PATH, chosen.id, timings, status,

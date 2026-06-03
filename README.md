@@ -18,7 +18,7 @@ Everything — album, refresh frequency, orientation, display mode, language —
 
 ## ✨ Features
 
-- 🎲 **Random photo** from any Immich album, refreshed every **5–60 min** (configurable).
+- 🎲 **Smart random photo** from any Immich album, refreshed every **5–60 min** (configurable). Never-seen photos go first; once every photo has appeared at least once, the draw is weighted by *days since last seen* so an album of 500 photos cycles broadly without clones every other day. The per-asset history is wiped automatically when you switch source or pick a different album.
 - 🔄 **Rotation 0° / 90° / 180° / 270°** — hang the frame portrait, landscape, upside-down… the canvas adapts.
 - 🎨 **Per-orientation display modes** — **fill** (crop to frame), **square** (1:1 centered), or **original** (full photo with bands). Bands color: white or black.
 - 🎚️ **Image enhancement** sliders (brightness / saturation / sharpness) with a **Live preview** button to iterate on the panel without leaving the UI.
