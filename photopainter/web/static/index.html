@@ -37,35 +37,55 @@
     <section class="card">
       <details class="card-fold">
       <summary><span class="card-h2" data-i18n="source.title">Photo album</span></summary>
-      <label><span data-i18n="source.url">Server URL</span>
-        <input type="text" id="immich-url" placeholder="https://photo.example.com">
-      </label>
 
-      <label><span data-i18n="source.api_key">API key</span>
-        <input type="text" id="immich-api-key">
-      </label>
-      <details class="help">
-        <summary data-i18n="source.api_key_tuto.summary">How to create an API key in Immich?</summary>
-        <ol>
-          <li data-i18n="source.api_key_tuto.step1">In Immich, click your avatar (top right) → Account Settings.</li>
-          <li data-i18n="source.api_key_tuto.step2">Tab "API Keys" → "New API Key", name it "photopainter".</li>
-          <li data-i18n="source.api_key_tuto.step3">Check only these permissions:</li>
-          <ul>
-            <li><code>album.read</code></li>
-            <li><code>asset.read</code></li>
-            <li><code>asset.download</code></li>
-          </ul>
-          <li data-i18n="source.api_key_tuto.step3_note">No write/admin permission needed.</li>
-          <li data-i18n="source.api_key_tuto.step4">Click Create, then copy the key (shown once).</li>
-          <li data-i18n="source.api_key_tuto.step5">Paste it above and save.</li>
-        </ol>
-      </details>
+      <div class="tabs" role="tablist">
+        <label class="tab">
+          <input type="radio" name="source-active" value="immich">
+          <span>Immich</span>
+        </label>
+        <!-- Future:
+        <label class="tab">
+          <input type="radio" name="source-active" value="google">
+          <span>Google Photos</span>
+        </label>
+        <label class="tab">
+          <input type="radio" name="source-active" value="local">
+          <span>Local upload</span>
+        </label>
+        -->
+      </div>
 
-      <label><span data-i18n="source.album">Album to display</span>
-        <select id="immich-album"><option value="" data-i18n="source.album_placeholder">— select an album —</option></select>
-        <button id="btn-reload-albums" type="button" class="link" data-i18n="source.reload_albums">↻ reload list</button>
-      </label>
-      <p id="albums-feedback" class="muted small"></p>
+      <div class="tab-panel active" data-panel="immich">
+        <label><span data-i18n="source.url">Server URL</span>
+          <input type="text" id="immich-url" placeholder="https://photo.example.com">
+        </label>
+
+        <label><span data-i18n="source.api_key">API key</span>
+          <input type="text" id="immich-api-key">
+        </label>
+        <details class="help">
+          <summary data-i18n="source.api_key_tuto.summary">How to create an API key in Immich?</summary>
+          <ol>
+            <li data-i18n="source.api_key_tuto.step1">In Immich, click your avatar (top right) → Account Settings.</li>
+            <li data-i18n="source.api_key_tuto.step2">Tab "API Keys" → "New API Key", name it "photopainter".</li>
+            <li data-i18n="source.api_key_tuto.step3">Check only these permissions:</li>
+            <ul>
+              <li><code>album.read</code></li>
+              <li><code>asset.read</code></li>
+              <li><code>asset.download</code></li>
+            </ul>
+            <li data-i18n="source.api_key_tuto.step3_note">No write/admin permission needed.</li>
+            <li data-i18n="source.api_key_tuto.step4">Click Create, then copy the key (shown once).</li>
+            <li data-i18n="source.api_key_tuto.step5">Paste it above and save.</li>
+          </ol>
+        </details>
+
+        <label><span data-i18n="source.album">Album to display</span>
+          <select id="immich-album"><option value="" data-i18n="source.album_placeholder">— select an album —</option></select>
+          <button id="btn-reload-albums" type="button" class="link" data-i18n="source.reload_albums">↻ reload list</button>
+        </label>
+        <p id="albums-feedback" class="muted small"></p>
+      </div>
       </details>
     </section>
 
@@ -196,7 +216,7 @@
     <span id="save-feedback" class="muted"></span>
   </div>
 
-  <footer><p class="muted">v0.7.0 · LAN-only</p></footer>
+  <footer><p class="muted">v0.7.1 · LAN-only</p></footer>
 
   <script src="/static/app.js"></script>
 </body>

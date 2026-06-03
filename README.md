@@ -92,7 +92,7 @@ Open **`http://<your-host>.local/`** (or `http://<pi-ip>/`) on any device on you
 
 1. 📊 **Last cycle status** (always visible) — shows the filename + EXIF capture date of the current photo, a thumbnail preview, and a **↻ Refresh now** button.
 
-2. 🖼️ **Photo album** — fill in the **Immich URL**, the **API key** (a built-in tutorial tells you which 3 permissions to check: `album.read`, `asset.read`, `asset.download`), and pick an **Album** from the dropdown that auto-fills after URL + key are saved.
+2. 🖼️ **Photo album** — the section is organized in **source tabs** (only **Immich** for now, more coming). Each tab has a **radio button** that becomes the active source on save. Inside the Immich tab, fill in the **Immich URL**, the **API key** (a built-in tutorial tells you which 3 permissions to check: `album.read`, `asset.read`, `asset.download`), and pick an **Album** from the dropdown that auto-fills after URL + key are saved.
 
 3. 🗓️ **Schedule**
    - **Refresh frequency** — `5 / 10 / 15 / 20 / 30 / 45 / 60 min`.

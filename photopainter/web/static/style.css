@@ -144,6 +144,38 @@ fieldset legend { font-size: 0.85rem; color: var(--muted); padding: 0 0.5rem; }
 .calendar .cal-cell.active { background: var(--accent); }
 .calendar .cal-cell:hover { outline: 1px solid var(--accent); outline-offset: -1px; z-index: 1; }
 
+/* Source tabs (Immich today, Google Photos / Local later) */
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin: 0 0 0.75rem;
+}
+.tabs .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  cursor: pointer;
+  margin: 0 0 -1px;
+  border-radius: 0;
+}
+.tabs .tab input[type=radio] { margin: 0; cursor: pointer; }
+.tabs .tab:hover { color: var(--fg); }
+.tabs .tab.active,
+.tabs .tab:has(input:checked) {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
 /* Collapsible card wrapper — used on every section except "Last cycle status". */
 .card-fold > summary {
   list-style: none;

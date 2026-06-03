@@ -306,8 +306,10 @@ function setRadio(name, value) { $$(`input[name="${name}"]`).forEach(i => { i.ch
 function getRadio(name) { const sel = document.querySelector(`input[name="${name}"]:checked`); return sel ? sel.value : null; }
 
 function collectPatch() {
+  const activeSourceRadio = document.querySelector('input[name="source-active"]:checked');
   return {
     sources: {
+      active: activeSourceRadio ? activeSourceRadio.value : "immich",
       immich: {
         base_url: $("#immich-url").value.trim(),
         api_key: $("#immich-api-key").value.trim(),
@@ -456,6 +458,14 @@ async function loadAll() {
   // Language comes from the server, not localStorage
   currentLang = (ui.language === "fr") ? "fr" : "en";
   applyI18n();
+
+  // Pick the active-source tab matching the server-side preference.
+  const activeSource = (s && s.active) || "immich";
+  const sourceRadio = document.querySelector(`input[name="source-active"][value="${activeSource}"]`);
+  if (sourceRadio) {
+    sourceRadio.checked = true;
+    showSourcePanel(activeSource);
+  }
 
   $("#immich-url").value = s.immich.base_url || "";
   $("#immich-api-key").value = s.immich.api_key || "";
@@ -668,6 +678,25 @@ $("#lang-select").onchange = (e) => {
   if ($("#calendar")) renderCalendar();
   updateDirty();
 };
+
+// Source tabs — each tab carries a radio button. The radio is the source of
+// truth ("active source"). Clicking a tab also flips the radio (label wraps
+// the input). The change does NOT take effect until the user hits Save.
+function showSourcePanel(name) {
+  $$(".tabs .tab").forEach(t => {
+    const radio = t.querySelector('input[name="source-active"]');
+    t.classList.toggle("active", radio && radio.value === name);
+  });
+  $$(".tab-panel").forEach(p => p.classList.toggle("active", p.dataset.panel === name));
+}
+
+$$('input[name="source-active"]').forEach(r => {
+  r.addEventListener("change", () => {
+    if (!r.checked) return;
+    showSourcePanel(r.value);
+    updateDirty();
+  });
+});
 
 bindDirtyInputs();
 applyI18n();

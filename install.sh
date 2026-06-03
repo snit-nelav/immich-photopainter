@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # photopainter install script — Raspberry Pi OS Lite 64-bit (Bookworm / Trixie).
 # Run on a freshly-imaged Pi:
-#   git clone https://github.com/<you>/photopainter.git
-#   cd photopainter
+#   git clone https://github.com/snit-nelav/immich-photopainter.git
+#   cd immich-photopainter
 #   sudo ./install.sh
 #
 # Idempotent: safe to re-run.
