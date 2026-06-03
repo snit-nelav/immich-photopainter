@@ -29,11 +29,11 @@ display:
 
 scheduling:
   refresh_interval_minutes: 15   # ∈ {5, 10, 15, 20, 30, 45, 60}
-  # Quiet hours = a window during which the frame stops refreshing (e.g. at night).
-  # Set start > end to wrap midnight (e.g. start=22, end=6 pauses 22:00 -> 06:00).
-  pause_enabled: true
-  pause_start_hour: 0            # 0-23
-  pause_end_hour: 6              # 0-23 (exclusive)
+  # active_hours is a 7×24 boolean matrix (Mon..Sun × 0h..23h). It defaults to
+  # all true (refresh round the clock). Edit it from the web UI's Activity
+  # calendar — it gets serialized back into this file on save.
+  # Legacy "pause_enabled / pause_start_hour / pause_end_hour" fields are
+  # auto-migrated to active_hours on first load.
 
 history:
   max_size: 20

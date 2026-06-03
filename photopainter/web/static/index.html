@@ -35,7 +35,8 @@
     </section>
 
     <section class="card">
-      <h2 data-i18n="source.title">Source: Immich</h2>
+      <details class="card-fold">
+      <summary><span class="card-h2" data-i18n="source.title">Photo album</span></summary>
       <label><span data-i18n="source.url">Server URL</span>
         <input type="text" id="immich-url" placeholder="https://photo.example.com">
       </label>
@@ -65,68 +66,77 @@
         <button id="btn-reload-albums" type="button" class="link" data-i18n="source.reload_albums">↻ reload list</button>
       </label>
       <p id="albums-feedback" class="muted small"></p>
+      </details>
     </section>
 
     <section class="card">
-      <h2 data-i18n="frequency.title">Refresh frequency</h2>
-      <div id="interval-buttons" class="pills"></div>
-      <p class="muted" id="next-refresh" data-i18n="frequency.next">next refresh: —</p>
+      <details class="card-fold">
+      <summary><span class="card-h2" data-i18n="schedule.title">Schedule</span></summary>
+
+      <div class="system-block">
+        <h3 class="system-sub" data-i18n="frequency.title">Refresh frequency</h3>
+        <div id="interval-buttons" class="pills"></div>
+        <p class="muted" id="next-refresh" data-i18n="frequency.next">next refresh: —</p>
+      </div>
+
+      <div class="system-block">
+        <h3 class="system-sub" data-i18n="calendar.title">Activity calendar</h3>
+        <p class="muted small" data-i18n="calendar.help">Click a cell to toggle it. Blue = the frame refreshes during that hour, white = silent. The grid scrolls horizontally on narrow screens.</p>
+        <div class="calendar-actions">
+          <button id="btn-cal-all" type="button" data-i18n="calendar.all_on">All on</button>
+          <button id="btn-cal-none" type="button" data-i18n="calendar.all_off">All off</button>
+        </div>
+        <div class="calendar-wrap">
+          <div id="calendar" class="calendar"></div>
+        </div>
+      </div>
+      </details>
     </section>
 
     <section class="card">
-      <h2 data-i18n="quiet.title">Quiet hours</h2>
-      <p class="muted small" data-i18n="quiet.help">Pause the refresh during quiet hours (e.g. at night). Set start &gt; end to wrap midnight (e.g. 22 → 6 pauses from 22:00 to 06:00).</p>
-      <label class="toggle-row">
-        <input type="checkbox" id="pause-enabled">
-        <span data-i18n="quiet.toggle">Enable quiet hours</span>
-      </label>
-      <div id="quiet-hours-fields">
-        <label><span data-i18n="quiet.start">Pause start</span>
-          <select id="pause-start"></select>
-        </label>
-        <label><span data-i18n="quiet.end">Pause end</span>
-          <select id="pause-end"></select>
+      <details class="card-fold">
+      <summary><span class="card-h2" data-i18n="layout.title">Frame & layout</span></summary>
+
+      <div class="system-block">
+        <h3 class="system-sub" data-i18n="rotation.title">Frame orientation</h3>
+        <p class="muted small" data-i18n="rotation.help">0° / 180° = portrait, 90° / 270° = landscape. Affects the logical canvas (480×800 or 800×480) and how photos get cropped.</p>
+        <div id="rotation-buttons" class="pills"></div>
+      </div>
+
+      <div class="system-block">
+        <h3 class="system-sub" data-i18n="display.title">Display mode</h3>
+
+        <fieldset>
+          <legend data-i18n="display.compatible">Photo with same orientation as frame</legend>
+          <div class="radios" data-target="compatible_mode">
+            <label><input type="radio" name="compatible_mode" value="fill"><span><span data-i18n="display.fill">Fill frame</span> <em class="muted" data-i18n="display.fill_desc">— crop, loses borders</em></span></label>
+            <label><input type="radio" name="compatible_mode" value="square"><span><span data-i18n="display.square">Centered square</span> <em class="muted" data-i18n="display.square_desc">— plain bands around</em></span></label>
+            <label><input type="radio" name="compatible_mode" value="original"><span><span data-i18n="display.original">Original</span> <em class="muted" data-i18n="display.original_desc">— full photo, plain bands</em></span></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend data-i18n="display.inverted">Photo with opposite orientation</legend>
+          <div class="radios" data-target="inverted_mode">
+            <label><input type="radio" name="inverted_mode" value="fill"><span><span data-i18n="display.fill">Fill frame</span> <em class="muted" data-i18n="display.fill_inv_desc">— heavy crop, loses much of the photo</em></span></label>
+            <label><input type="radio" name="inverted_mode" value="square"><span><span data-i18n="display.square">Centered square</span> <em class="muted" data-i18n="display.square_desc">— plain bands around</em></span></label>
+            <label><input type="radio" name="inverted_mode" value="original"><span><span data-i18n="display.original">Original</span> <em class="muted" data-i18n="display.original_desc">— full photo, plain bands</em></span></label>
+          </div>
+        </fieldset>
+
+        <label class="bg-color"><span data-i18n="display.bg_color">Bands color</span> <span class="muted" data-i18n="display.bg_note">(Square and Original modes)</span>
+          <div class="pills" id="bg-buttons">
+            <button type="button" data-value="white" data-i18n="display.white">White</button>
+            <button type="button" data-value="black" data-i18n="display.black">Black</button>
+          </div>
         </label>
       </div>
+      </details>
     </section>
 
     <section class="card">
-      <h2 data-i18n="rotation.title">Frame orientation</h2>
-      <p class="muted small" data-i18n="rotation.help">0° / 180° = portrait, 90° / 270° = landscape. Affects the logical canvas (480×800 or 800×480) and how photos get cropped.</p>
-      <div id="rotation-buttons" class="pills"></div>
-    </section>
-
-    <section class="card">
-      <h2 data-i18n="display.title">Display mode</h2>
-
-      <fieldset>
-        <legend data-i18n="display.compatible">Photo with same orientation as frame</legend>
-        <div class="radios" data-target="compatible_mode">
-          <label><input type="radio" name="compatible_mode" value="fill"><span><span data-i18n="display.fill">Fill frame</span> <em class="muted" data-i18n="display.fill_desc">— crop, loses borders</em></span></label>
-          <label><input type="radio" name="compatible_mode" value="square"><span><span data-i18n="display.square">Centered square</span> <em class="muted" data-i18n="display.square_desc">— plain bands around</em></span></label>
-          <label><input type="radio" name="compatible_mode" value="original"><span><span data-i18n="display.original">Original</span> <em class="muted" data-i18n="display.original_desc">— full photo, plain bands</em></span></label>
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend data-i18n="display.inverted">Photo with opposite orientation</legend>
-        <div class="radios" data-target="inverted_mode">
-          <label><input type="radio" name="inverted_mode" value="fill"><span><span data-i18n="display.fill">Fill frame</span> <em class="muted" data-i18n="display.fill_inv_desc">— heavy crop, loses much of the photo</em></span></label>
-          <label><input type="radio" name="inverted_mode" value="square"><span><span data-i18n="display.square">Centered square</span> <em class="muted" data-i18n="display.square_desc">— plain bands around</em></span></label>
-          <label><input type="radio" name="inverted_mode" value="original"><span><span data-i18n="display.original">Original</span> <em class="muted" data-i18n="display.original_desc">— full photo, plain bands</em></span></label>
-        </div>
-      </fieldset>
-
-      <label class="bg-color"><span data-i18n="display.bg_color">Bands color</span> <span class="muted" data-i18n="display.bg_note">(Square and Original modes)</span>
-        <div class="pills" id="bg-buttons">
-          <button type="button" data-value="white" data-i18n="display.white">White</button>
-          <button type="button" data-value="black" data-i18n="display.black">Black</button>
-        </div>
-      </label>
-    </section>
-
-    <section class="card">
-      <h2 data-i18n="enhance.title">Image enhancement</h2>
+      <details class="card-fold">
+      <summary><span class="card-h2" data-i18n="enhance.title">Image enhancement</span></summary>
       <p class="muted small" data-i18n="enhance.help">Useful to compensate for the muted Spectra 6 palette. 1.0 = identity, 0.0 = removed, 2.0 = doubled.</p>
       <label><span data-i18n="enhance.brightness">Brightness</span> <b id="brightness-val">1.00</b>
         <input type="range" id="brightness" min="0" max="2" step="0.05" value="1">
@@ -139,29 +149,44 @@
       </label>
       <button id="btn-live-preview" class="primary" data-i18n="enhance.live_preview">👁 Live preview</button>
       <span id="live-preview-feedback" class="muted small"></span>
+      </details>
     </section>
 
     <section class="card">
-      <h2 data-i18n="cache.title">Local cache</h2>
-      <p class="muted small" data-i18n="cache.intro">Downloaded photos are cached. If Immich is unavailable, the frame uses the cache. Old entries are auto-purged every night at midnight.</p>
-      <label><span data-i18n="cache.max_size">Max size:</span> <b id="cache-size-val">2.0</b> GB
-        <input type="range" id="cache-size" min="1" max="10" step="0.5" value="2">
-      </label>
-      <p id="cache-info" class="muted small">—</p>
-      <button id="btn-cache-clear" type="button" class="danger" data-i18n="cache.clear">🗑 Clear cache</button>
-      <span id="cache-feedback" class="muted small"></span>
-    </section>
+      <details class="card-fold">
+      <summary><span class="card-h2" data-i18n="system.title">System</span></summary>
 
-    <section class="card">
-      <details id="logs-card">
-        <summary><span class="h2-inline" data-i18n="logs.title">Logs</span></summary>
-        <p class="muted small" data-i18n="logs.help">Recent events (newest first). Auto-purged after 14 days. Paste them here if something goes wrong.</p>
-        <textarea id="logs-area" readonly></textarea>
-        <div class="logs-actions">
-          <button id="btn-logs-loadmore" type="button" data-i18n="logs.loadmore">↓ Load more</button>
-          <button id="btn-logs-clear" type="button" class="danger" data-i18n="logs.clear">🗑 Clear logs</button>
-          <span id="logs-feedback" class="muted small"></span>
-        </div>
+      <div class="system-block">
+        <h3 class="system-sub" data-i18n="maintenance.title">Maintenance</h3>
+        <p class="muted small" data-i18n="maintenance.help">Reboot the Raspberry Pi (about 1 minute downtime). The frame keeps the last image on screen until the first refresh after boot.</p>
+        <button id="btn-reboot" type="button" class="danger" data-i18n="maintenance.reboot">⟳ Reboot</button>
+        <button id="btn-shutdown" type="button" class="danger" data-i18n="maintenance.shutdown">⏻ Shutdown</button>
+        <span id="reboot-feedback" class="muted small"></span>
+      </div>
+
+      <div class="system-block">
+        <h3 class="system-sub" data-i18n="cache.title">Local cache</h3>
+        <p class="muted small" data-i18n="cache.intro">Downloaded photos are cached. If Immich is unavailable, the frame uses the cache. Old entries are auto-purged every night at midnight.</p>
+        <label><span data-i18n="cache.max_size">Max size:</span> <b id="cache-size-val">2.0</b> GB
+          <input type="range" id="cache-size" min="1" max="10" step="0.5" value="2">
+        </label>
+        <p id="cache-info" class="muted small">—</p>
+        <button id="btn-cache-clear" type="button" class="danger" data-i18n="cache.clear">🗑 Clear cache</button>
+        <span id="cache-feedback" class="muted small"></span>
+      </div>
+
+      <div class="system-block">
+        <details id="logs-card">
+          <summary><span class="h3-inline" data-i18n="logs.title">Logs</span></summary>
+          <p class="muted small" data-i18n="logs.help">Recent events (newest first). Auto-purged after 14 days. Paste them here if something goes wrong.</p>
+          <textarea id="logs-area" readonly></textarea>
+          <div class="logs-actions">
+            <button id="btn-logs-loadmore" type="button" data-i18n="logs.loadmore">↓ Load more</button>
+            <button id="btn-logs-clear" type="button" class="danger" data-i18n="logs.clear">🗑 Clear logs</button>
+            <span id="logs-feedback" class="muted small"></span>
+          </div>
+        </details>
+      </div>
       </details>
     </section>
   </main>
@@ -171,7 +196,7 @@
     <span id="save-feedback" class="muted"></span>
   </div>
 
-  <footer><p class="muted">v0.6.1 · LAN-only</p></footer>
+  <footer><p class="muted">v0.7.0 · LAN-only</p></footer>
 
   <script src="/static/app.js"></script>
 </body>

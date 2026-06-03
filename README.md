@@ -22,10 +22,11 @@ Everything — album, refresh frequency, orientation, display mode, language —
 - 🔄 **Rotation 0° / 90° / 180° / 270°** — hang the frame portrait, landscape, upside-down… the canvas adapts.
 - 🎨 **Per-orientation display modes** — **fill** (crop to frame), **square** (1:1 centered), or **original** (full photo with bands). Bands color: white or black.
 - 🎚️ **Image enhancement** sliders (brightness / saturation / sharpness) with a **Live preview** button to iterate on the panel without leaving the UI.
-- 🌙 Configurable **quiet hours** (toggle + start / end hour, wraps midnight) — silent at night, last photo stays on screen for free (e-paper).
+- 🗓️ **Weekly activity calendar (7×24)** — click any hour-cell to toggle it on/off, click a day label to flip the whole row, click an hour label to flip the whole column. Silent slots cost nothing on e-paper.
 - 💾 **Local cache (1–10 GB)** with nightly auto-purge + a manual **Clear cache** button — if Immich is offline, the frame keeps cycling from what it already has.
 - 🚨 **At-a-glance error badge** in the bottom-left corner of the photo: a wifi-off pictogram when the radio link is down, an alert-triangle for any other problem (Immich unreachable, crashes, …). Vanishes automatically once a cycle succeeds again.
 - 📊 **Status block** with the photo's filename + EXIF capture date, plus a collapsible **activity log** (structured events, paginated, one-click clear) for easy troubleshooting.
+- 🛠️ **Remote reboot / shutdown** of the Pi from the UI — no SSH needed.
 - 🔁 **Survives reboots** — refresh lock and live preview live on persistent storage, the frame picks up automatically on power-up.
 - 🌈 **Floyd-Steinberg dithering** against the native Spectra 6 palette — better color rendition than the stock Waveshare driver.
 - 🌍 **Bilingual UI** (🇬🇧 / 🇫🇷), every preference persisted server-side (no cookies, no localStorage).
@@ -78,8 +79,8 @@ Slide the SD into the Pi, plug the USB-C **into the HAT's port** (not the Pi's),
 
 ```bash
 ssh <your-user>@<your-host>.local
-git clone https://github.com/<you>/photopainter.git
-cd photopainter
+git clone https://github.com/snit-nelav/immich-photopainter.git
+cd immich-photopainter
 sudo ./install.sh
 ```
 
@@ -87,29 +88,28 @@ The install script takes care of everything (drivers, the [PWR_PIN patch](#-pitf
 
 ### 5️⃣ Configure from the web UI
 
-Open **`http://<your-host>.local/`** (or `http://<pi-ip>/`) on any device on your LAN. The page is bilingual (🇬🇧 / 🇫🇷, switcher top-right). Fill in, top to bottom:
+Open **`http://<your-host>.local/`** (or `http://<pi-ip>/`) on any device on your LAN. The page is bilingual (🇬🇧 / 🇫🇷, switcher top-right). Below the always-visible status, every section is **collapsed by default** — click its header to fold/unfold (`+` / `−`).
 
-**Source — required**
-1. 🌐 **Immich URL** (e.g. `https://photos.example.com`).
-2. 🔑 **API key** — a one-click tutorial in the UI tells you which 3 Immich permissions to check (`album.read`, `asset.read`, `asset.download`).
-3. 📁 **Album** — once URL + key are saved, the dropdown auto-fills with your albums.
+1. 📊 **Last cycle status** (always visible) — shows the filename + EXIF capture date of the current photo, a thumbnail preview, and a **↻ Refresh now** button.
 
-**Cadence — when does it refresh**
-4. ⏱️ **Refresh frequency** — `5 / 10 / 15 / 20 / 30 / 45 / 60 min`.
-5. 🌙 **Quiet hours** — toggle on/off + start/end hour, wraps midnight (e.g. `22h → 6h`).
+2. 🖼️ **Photo album** — fill in the **Immich URL**, the **API key** (a built-in tutorial tells you which 3 permissions to check: `album.read`, `asset.read`, `asset.download`), and pick an **Album** from the dropdown that auto-fills after URL + key are saved.
 
-**Layout — how each photo fits the frame**
-6. 🔄 **Frame orientation** (`0° / 90° / 180° / 270°`) — match the way you hang it.
-7. 🎨 **Display mode** for photos that match the frame's orientation **and** for those that don't (`fill`, `square`, or `original`), plus the **bands color** (white / black) for square / original.
+3. 🗓️ **Schedule**
+   - **Refresh frequency** — `5 / 10 / 15 / 20 / 30 / 45 / 60 min`.
+   - **Activity calendar** — 7×24 grid (Mon–Sun × 0h–23h). Click a cell to toggle it. Click a day label to flip the whole row, click an hour label to flip the whole column. Presets: `All on` / `All off`.
 
-**Look — how each photo is rendered**
-8. 🎚️ **Image enhancement** sliders (brightness / saturation / sharpness, range `0.0 – 2.0`, `1.0` = identity). The **👁 Live preview** button pushes the current photo to the panel with the new values so you can iterate without leaving the page.
+4. 📐 **Layout**
+   - **Frame orientation** (`0° / 90° / 180° / 270°`) — match the way you hang it.
+   - **Display mode** for photos that match the frame's orientation **and** for those that don't (`fill`, `square`, or `original`), plus the **bands color** (white / black) for square / original.
 
-**Storage & ops**
-9. 💾 **Local cache** size (`1 – 10 GB`) + a manual **🗑 Clear cache** button.
-10. 📋 **Logs** (collapsible) — last events, with Load more / Clear buttons. Useful when you need to ask "what happened?".
+5. 🎚️ **Image enhancement** — brightness / saturation / sharpness sliders (range `0.0 – 2.0`, `1.0` = identity). The **👁 Live preview** button pushes the current photo to the panel with the new values so you can iterate without leaving the page.
 
-Hit **💾 Save** (sticky bottom-right bar — goes red when there are unsaved changes). A first photo appears on the panel in ~25 seconds. 🎉
+6. 🛠️ **System** — three sub-blocks:
+   - **Maintenance** — `⟳ Reboot` and `⏻ Shutdown` buttons (each with a confirmation prompt).
+   - **Local cache** — size slider (`1 – 10 GB`) + manual **🗑 Clear cache**.
+   - **Logs** (nested collapsible) — paginated event log with **Load more** / **Clear** buttons.
+
+Hit **💾 Save** (sticky bottom-right bar — gray when there are no changes, red when there are). A first photo appears on the panel in ~25 seconds. 🎉
 
 That's it — the frame refreshes on its own from now on. If something breaks, a small **🚨 error badge** appears in the bottom-left of the photo (wifi-off icon for radio problems, alert-triangle for everything else); it vanishes on its own as soon as a cycle succeeds again.
 

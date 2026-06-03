@@ -55,9 +55,7 @@ def _categorize_change(old: dict, new: dict) -> str:
         or old_im.get("api_key") != new_im.get("api_key")
         or old_im.get("album_id") != new_im.get("album_id")
         or old_sch.get("refresh_interval_minutes") != new_sch.get("refresh_interval_minutes")
-        or old_sch.get("pause_enabled") != new_sch.get("pause_enabled")
-        or old_sch.get("pause_start_hour") != new_sch.get("pause_start_hour")
-        or old_sch.get("pause_end_hour") != new_sch.get("pause_end_hour")):
+        or old_sch.get("active_hours") != new_sch.get("active_hours")):
         return "new_photo"
 
     old_d = old.get("display", {})
@@ -285,6 +283,39 @@ def create_app() -> Flask:
         events_log.clear()
         events_log.log_event("INFO", "logs_cleared")
         return jsonify({"status": "ok"})
+
+    @app.post("/api/reboot")
+    def post_reboot():
+        """Reboot the Pi. Returns immediately; the actual reboot happens a few
+        seconds later so the HTTP response can be sent first."""
+        events_log.log_event("INFO", "reboot_requested")
+        try:
+            subprocess.Popen(
+                ["sudo", "-n", "shutdown", "-r", "+0", "Manual reboot from photopainter UI"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except Exception as exc:
+            events_log.log_event("ERROR", "reboot_failed", error=str(exc))
+            return jsonify({"error": str(exc)}), 500
+        return jsonify({"status": "rebooting"}), 202
+
+    @app.post("/api/shutdown")
+    def post_shutdown():
+        """Halt the Pi. The frame keeps its last image (e-paper)."""
+        events_log.log_event("INFO", "shutdown_requested")
+        try:
+            subprocess.Popen(
+                ["sudo", "-n", "shutdown", "-h", "+0", "Manual shutdown from photopainter UI"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except Exception as exc:
+            events_log.log_event("ERROR", "shutdown_failed", error=str(exc))
+            return jsonify({"error": str(exc)}), 500
+        return jsonify({"status": "shutting_down"}), 202
 
     return app
 

@@ -34,7 +34,7 @@ const I18N = {
     "actions.title": "Actions",
     "actions.refresh": "↻ Refresh now",
     "actions.clear": "⚠ Clear screen",
-    "source.title": "Source: Immich",
+    "source.title": "Photo album",
     "source.url": "Server URL",
     "source.api_key": "API key",
     "source.api_key_tuto.summary": "How to create an API key in Immich?",
@@ -49,11 +49,28 @@ const I18N = {
     "source.reload_albums": "↻ reload list",
     "frequency.title": "Refresh frequency",
     "frequency.next": "next refresh: —",
-    "quiet.title": "Quiet hours",
-    "quiet.help": "Pause the refresh during quiet hours (e.g. at night). Set start > end to wrap midnight (e.g. 22 → 6 pauses from 22:00 to 06:00).",
-    "quiet.toggle": "Enable quiet hours",
-    "quiet.start": "Pause start",
-    "quiet.end": "Pause end",
+    "calendar.title": "Activity calendar",
+    "calendar.help": "Click a cell to toggle it. Blue = the frame refreshes during that hour, white = silent. The grid scrolls horizontally on narrow screens.",
+    "calendar.all_on": "All on",
+    "calendar.all_off": "All off",
+    "calendar.day_mon": "Mon",
+    "calendar.day_tue": "Tue",
+    "calendar.day_wed": "Wed",
+    "calendar.day_thu": "Thu",
+    "calendar.day_fri": "Fri",
+    "calendar.day_sat": "Sat",
+    "calendar.day_sun": "Sun",
+    "system.title": "System",
+    "maintenance.title": "Maintenance",
+    "maintenance.help": "Reboot the Raspberry Pi (about 1 minute downtime) or shut it down. The frame keeps the last image on screen.",
+    "maintenance.reboot": "⟳ Reboot",
+    "maintenance.shutdown": "⏻ Shutdown",
+    "maintenance.reboot_confirm": "Reboot the Pi now? The web UI will be unreachable for about a minute.",
+    "maintenance.shutdown_confirm": "Shut the Pi down now? The frame stops refreshing until you power it on again.",
+    "maintenance.rebooting": "rebooting…",
+    "maintenance.shutting_down": "shutting down…",
+    "schedule.title": "Schedule",
+    "layout.title": "Layout",
     "rotation.title": "Frame orientation",
     "rotation.help": "0° / 180° = portrait, 90° / 270° = landscape. Affects the logical canvas (480×800 or 800×480) and how photos get cropped.",
     "display.title": "Display mode",
@@ -121,7 +138,7 @@ const I18N = {
     "actions.title": "Actions",
     "actions.refresh": "↻ Refresh maintenant",
     "actions.clear": "⚠ Clear screen",
-    "source.title": "Source : Immich",
+    "source.title": "Album photo",
     "source.url": "URL serveur",
     "source.api_key": "Clé API",
     "source.api_key_tuto.summary": "Comment créer une clé API dans Immich ?",
@@ -136,11 +153,28 @@ const I18N = {
     "source.reload_albums": "↻ recharger la liste",
     "frequency.title": "Fréquence de refresh",
     "frequency.next": "prochain refresh : —",
-    "quiet.title": "Pause nocturne",
-    "quiet.help": "Met en pause le refresh pendant les heures choisies (ex. la nuit). Mettre début > fin pour traverser minuit (ex. 22 → 6 met en pause de 22:00 à 06:00).",
-    "quiet.toggle": "Activer la pause",
-    "quiet.start": "Début",
-    "quiet.end": "Fin",
+    "calendar.title": "Calendrier d'activité",
+    "calendar.help": "Clique sur une case pour la basculer. Bleu = le cadre rafraîchit pendant cette heure, blanc = silencieux. La grille défile horizontalement sur écran étroit.",
+    "calendar.all_on": "Tout activer",
+    "calendar.all_off": "Tout désactiver",
+    "calendar.day_mon": "Lun",
+    "calendar.day_tue": "Mar",
+    "calendar.day_wed": "Mer",
+    "calendar.day_thu": "Jeu",
+    "calendar.day_fri": "Ven",
+    "calendar.day_sat": "Sam",
+    "calendar.day_sun": "Dim",
+    "system.title": "Système",
+    "maintenance.title": "Maintenance",
+    "maintenance.help": "Redémarre le Raspberry Pi (environ 1 min d'indisponibilité) ou l'éteint. Le cadre garde la dernière image affichée.",
+    "maintenance.reboot": "⟳ Redémarrer",
+    "maintenance.shutdown": "⏻ Éteindre",
+    "maintenance.reboot_confirm": "Redémarrer le Pi maintenant ? L'UI sera injoignable pendant environ 1 minute.",
+    "maintenance.shutdown_confirm": "Éteindre le Pi maintenant ? Le cadre arrête de rafraîchir jusqu'à ce que tu le rallumes.",
+    "maintenance.rebooting": "redémarrage en cours…",
+    "maintenance.shutting_down": "extinction en cours…",
+    "schedule.title": "Planification",
+    "layout.title": "Mise en page",
     "rotation.title": "Orientation du cadre",
     "rotation.help": "0° / 180° = portrait, 90° / 270° = paysage. Modifie le canvas logique (480×800 ou 800×480) et comment les photos sont croppées.",
     "display.title": "Mode d'affichage",
@@ -291,9 +325,8 @@ function collectPatch() {
     },
     scheduling: {
       refresh_interval_minutes: currentInterval,
-      pause_enabled: $("#pause-enabled").checked,
-      pause_start_hour: parseInt($("#pause-start").value, 10),
-      pause_end_hour: parseInt($("#pause-end").value, 10),
+      // Send a deep copy so toggling cells after a save doesn't mutate the patch.
+      active_hours: activeHours.map(row => row.slice()),
     },
     cache: { max_size_gb: parseFloat($("#cache-size").value) },
     ui: { language: currentLang },
@@ -310,21 +343,73 @@ function updateDirty() {
   btn.classList.toggle("dirty", dirty);
 }
 
-function populateHourSelect(id) {
-  const sel = $("#" + id);
-  if (sel.options.length) return;
+// ----- Activity calendar -----
+const DAY_KEYS = ["calendar.day_mon", "calendar.day_tue", "calendar.day_wed",
+                  "calendar.day_thu", "calendar.day_fri", "calendar.day_sat",
+                  "calendar.day_sun"];
+let activeHours = Array.from({ length: 7 }, () => Array(24).fill(true));
+
+function renderCalendar() {
+  const root = $("#calendar");
+  root.innerHTML = "";
+  // Top-left corner
+  const corner = document.createElement("div");
+  corner.className = "cal-corner";
+  root.appendChild(corner);
+  // Hour header — click toggles the whole column
   for (let h = 0; h < 24; h++) {
-    const o = document.createElement("option");
-    o.value = String(h);
-    o.textContent = String(h).padStart(2, "0") + ":00";
-    sel.appendChild(o);
+    const c = document.createElement("div");
+    c.className = "cal-hour";
+    c.textContent = String(h);
+    c.title = "Toggle column";
+    c.onclick = ((hour) => () => toggleColumn(hour))(h);
+    root.appendChild(c);
+  }
+  // 7 rows
+  for (let d = 0; d < 7; d++) {
+    const day = document.createElement("div");
+    day.className = "cal-day";
+    day.textContent = t(DAY_KEYS[d]);
+    day.title = "Toggle row";
+    day.onclick = ((dayIdx) => () => toggleRow(dayIdx))(d);
+    root.appendChild(day);
+    for (let h = 0; h < 24; h++) {
+      const cell = document.createElement("div");
+      cell.className = "cal-cell";
+      cell.dataset.d = d;
+      cell.dataset.h = h;
+      if (activeHours[d][h]) cell.classList.add("active");
+      cell.onclick = () => {
+        activeHours[d][h] = !activeHours[d][h];
+        cell.classList.toggle("active", activeHours[d][h]);
+        updateDirty();
+      };
+      root.appendChild(cell);
+    }
   }
 }
-function refreshQuietFieldsState() {
-  const on = $("#pause-enabled").checked;
-  $("#quiet-hours-fields").style.opacity = on ? "1" : "0.4";
-  $("#pause-start").disabled = !on;
-  $("#pause-end").disabled = !on;
+
+function toggleRow(d) {
+  // If every cell in the row is already active, clear it; otherwise set it.
+  const allOn = activeHours[d].every(Boolean);
+  const target = !allOn;
+  for (let h = 0; h < 24; h++) activeHours[d][h] = target;
+  renderCalendar();
+  updateDirty();
+}
+
+function toggleColumn(h) {
+  const allOn = activeHours.every(row => row[h]);
+  const target = !allOn;
+  for (let d = 0; d < 7; d++) activeHours[d][h] = target;
+  renderCalendar();
+  updateDirty();
+}
+
+function setAllCalendar(value) {
+  activeHours = Array.from({ length: 7 }, () => Array(24).fill(value));
+  renderCalendar();
+  updateDirty();
 }
 
 function bindDirtyInputs() {
@@ -380,16 +465,13 @@ async function loadAll() {
   renderPills("interval-buttons", meta.allowed_intervals || [5,10,15,20,30,45,60], currentInterval, " min", v => currentInterval = v);
   renderPills("rotation-buttons", meta.allowed_rotations || [0,90,180,270], currentRotation, "°", v => currentRotation = v);
 
-  // Quiet hours
-  populateHourSelect("pause-start");
-  populateHourSelect("pause-end");
-  $("#pause-enabled").checked = sch.pause_enabled !== false;
-  $("#pause-start").value = String(sch.pause_start_hour ?? 0);
-  $("#pause-end").value = String(sch.pause_end_hour ?? 6);
-  $("#pause-enabled").onchange = () => { refreshQuietFieldsState(); updateDirty(); };
-  $("#pause-start").onchange = updateDirty;
-  $("#pause-end").onchange = updateDirty;
-  refreshQuietFieldsState();
+  // Activity calendar — copy server-side matrix into our local state.
+  if (Array.isArray(sch.active_hours) && sch.active_hours.length === 7) {
+    activeHours = sch.active_hours.map(row => row.slice());
+  } else {
+    activeHours = Array.from({ length: 7 }, () => Array(24).fill(true));
+  }
+  renderCalendar();
 
   setRadio("compatible_mode", d.compatible_mode);
   setRadio("inverted_mode", d.inverted_mode);
@@ -553,10 +635,37 @@ $("#btn-cache-clear").onclick = async () => {
 
 $("#btn-reload-albums").onclick = () => loadAlbums();
 
+$("#btn-cal-all").onclick = () => setAllCalendar(true);
+$("#btn-cal-none").onclick = () => setAllCalendar(false);
+
+$("#btn-reboot").onclick = async () => {
+  if (!confirm(t("maintenance.reboot_confirm"))) return;
+  const fb = $("#reboot-feedback");
+  fb.textContent = t("maintenance.rebooting");
+  try {
+    await jpost("/api/reboot");
+  } catch (e) {
+    fb.textContent = "✗ " + e.message;
+  }
+};
+
+$("#btn-shutdown").onclick = async () => {
+  if (!confirm(t("maintenance.shutdown_confirm"))) return;
+  const fb = $("#reboot-feedback");
+  fb.textContent = t("maintenance.shutting_down");
+  try {
+    await jpost("/api/shutdown");
+  } catch (e) {
+    fb.textContent = "✗ " + e.message;
+  }
+};
+
 // Language change is persisted server-side and treated like any other config edit
 $("#lang-select").onchange = (e) => {
   currentLang = e.target.value;
   applyI18n();
+  // Day labels are read from i18n, so re-render the calendar to pick them up.
+  if ($("#calendar")) renderCalendar();
   updateDirty();
 };
 

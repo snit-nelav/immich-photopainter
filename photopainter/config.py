@@ -62,11 +62,16 @@ class DisplayConfig(BaseModel):
         return float(v)
 
 
+def _default_active_hours() -> list[list[bool]]:
+    """Default schedule: every hour of every day is active."""
+    return [[True] * 24 for _ in range(7)]
+
+
 class SchedulingConfig(BaseModel):
     refresh_interval_minutes: int = 15
-    pause_enabled: bool = True
-    pause_start_hour: int = 0     # inclusive, 0-23
-    pause_end_hour: int = 6       # exclusive, 0-23
+    # 7 rows (Monday .. Sunday, ISO weekday 0-6) × 24 columns (hour 0-23).
+    # Cell value True = the refresh runs during that hour, False = silent.
+    active_hours: list[list[bool]] = Field(default_factory=_default_active_hours)
 
     @field_validator("refresh_interval_minutes")
     @classmethod
@@ -75,12 +80,12 @@ class SchedulingConfig(BaseModel):
             raise ValueError(f"refresh_interval_minutes must be one of {ALLOWED_INTERVALS}")
         return v
 
-    @field_validator("pause_start_hour", "pause_end_hour")
+    @field_validator("active_hours")
     @classmethod
-    def validate_hour(cls, v: int) -> int:
-        if not (0 <= v <= 23):
-            raise ValueError("hour must be 0-23")
-        return v
+    def validate_active_hours(cls, v: list[list[bool]]) -> list[list[bool]]:
+        if len(v) != 7 or any(len(row) != 24 for row in v):
+            raise ValueError("active_hours must be a 7×24 matrix")
+        return [[bool(c) for c in row] for row in v]
 
 
 class HistoryConfig(BaseModel):
@@ -130,7 +135,31 @@ def load_config(path: Path = Path("/etc/photopainter/config.yaml")) -> Config:
     if not path.exists():
         raise FileNotFoundError(f"config not found: {path}")
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    _migrate_legacy_scheduling(raw)
     return Config.model_validate(raw)
+
+
+def _migrate_legacy_scheduling(raw: dict) -> None:
+    """Translate the legacy pause_enabled/start/end fields into an
+    active_hours matrix in place. No-op if active_hours is already set."""
+    sch = raw.get("scheduling") or {}
+    if "active_hours" in sch:
+        return
+    enabled = sch.pop("pause_enabled", False)
+    start = sch.pop("pause_start_hour", 0)
+    end = sch.pop("pause_end_hour", 0)
+    grid = [[True] * 24 for _ in range(7)]
+    if enabled and start != end:
+        for h in range(24):
+            in_pause = (
+                (start < end and start <= h < end)
+                or (start > end and (h >= start or h < end))
+            )
+            if in_pause:
+                for d in range(7):
+                    grid[d][h] = False
+    sch["active_hours"] = grid
+    raw["scheduling"] = sch
 
 
 def dump_config(cfg: Config, path: Path = Path("/etc/photopainter/config.yaml")) -> None:

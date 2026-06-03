@@ -360,9 +360,7 @@ def main(argv: list[str] | None = None) -> int:
         if not args.ignore_schedule and not args.force_asset:
             do_refresh, reason = should_refresh_now(
                 datetime.now(timezone.utc),
-                cfg.scheduling.pause_enabled,
-                cfg.scheduling.pause_start_hour,
-                cfg.scheduling.pause_end_hour,
+                cfg.scheduling.active_hours,
                 cfg.scheduling.refresh_interval_minutes,
                 LAST_STATUS_PATH,
             )

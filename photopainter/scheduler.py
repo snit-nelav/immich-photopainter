@@ -1,4 +1,4 @@
-"""Quiet-hours window check + refresh-interval debouncing."""
+"""Weekly activity calendar check + refresh-interval debouncing."""
 from __future__ import annotations
 
 import json
@@ -15,21 +15,19 @@ TZ = ZoneInfo("Europe/Paris")
 SCHEDULER_TOLERANCE_SECONDS = 60
 
 
-def is_in_quiet_hours(now: datetime, enabled: bool, start_hour: int, end_hour: int) -> bool:
-    """True when the refresher should stay silent.
-
-    If ``enabled`` is False, returns False (24/7 refresh).
-    If ``start_hour == end_hour``, returns False (zero-width window, treat as no pause).
-    Supports midnight-wrapping windows (e.g. start=23, end=6 means [23h, 24h) ∪ [0h, 6h)).
-    """
-    if not enabled or start_hour == end_hour:
-        return False
-    local_hour = now.astimezone(TZ).hour
-    if start_hour < end_hour:
-        # Simple window [start, end)
-        return start_hour <= local_hour < end_hour
-    # Wraps midnight: [start, 24) ∪ [0, end)
-    return local_hour >= start_hour or local_hour < end_hour
+def is_active_hour(now: datetime, active_hours: list[list[bool]]) -> bool:
+    """True when ``now`` falls in a cell of the weekly schedule that is
+    flagged as active. ``active_hours`` is a 7×24 boolean matrix indexed by
+    [weekday][hour] with weekday 0=Monday .. 6=Sunday (Python convention)."""
+    local = now.astimezone(TZ)
+    day = local.weekday()
+    hour = local.hour
+    try:
+        return bool(active_hours[day][hour])
+    except (IndexError, TypeError):
+        # Fail-open: better refresh than stay silent forever if the schedule
+        # got corrupted somehow.
+        return True
 
 
 def time_since_last_run(status_path: Path) -> float | None:
@@ -49,15 +47,14 @@ def time_since_last_run(status_path: Path) -> float | None:
 
 def should_refresh_now(
     now: datetime,
-    pause_enabled: bool,
-    pause_start_hour: int,
-    pause_end_hour: int,
+    active_hours: list[list[bool]],
     interval_minutes: int,
     status_path: Path,
 ) -> tuple[bool, str]:
     """Decide whether to refresh on this tick. Returns (do_refresh, reason)."""
-    if is_in_quiet_hours(now, pause_enabled, pause_start_hour, pause_end_hour):
-        return False, f"in quiet hours ({pause_start_hour:02d}h-{pause_end_hour:02d}h)"
+    if not is_active_hour(now, active_hours):
+        local = now.astimezone(TZ)
+        return False, f"inactive slot (weekday {local.weekday()}, hour {local.hour:02d})"
 
     elapsed = time_since_last_run(status_path)
     if elapsed is None:

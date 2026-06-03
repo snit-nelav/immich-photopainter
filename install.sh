@@ -65,10 +65,13 @@ chmod +x /opt/photopainter/refresh.sh
 chown -R "$USER_NAME:$USER_NAME" /opt/photopainter
 
 # --- 5. System directories ---
+# /var/lib/photopainter holds the refresh lock, the preview PNG, the history
+# and the last-status file (all on persistent storage so a reboot or a /tmp
+# wipe doesn't lose them).
 mkdir -p /etc/photopainter /var/lib/photopainter /var/log/photopainter \
-         /var/cache/photopainter /run/photopainter
+         /var/cache/photopainter
 chown "$USER_NAME:$USER_NAME" /etc/photopainter /var/lib/photopainter \
-    /var/log/photopainter /var/cache/photopainter /run/photopainter
+    /var/log/photopainter /var/cache/photopainter
 
 # --- 6. Initial config (do not overwrite) ---
 if [[ ! -f /etc/photopainter/config.yaml ]]; then
@@ -84,8 +87,12 @@ sed "s/^User=.*/User=$USER_NAME/; s/^Group=.*/Group=$USER_NAME/" \
 systemctl daemon-reload
 systemctl enable photopainter-web.service
 
-# --- 8. Crontab (5-min ticks, nightly cache purge, refresh at boot) ---
-CRON_REFRESH='*/5 6-23 * * * /opt/photopainter/refresh.sh >> /var/log/photopainter/cron.log 2>&1'
+# --- 8. Crontab (5-min ticks all day, nightly cache purge, refresh at boot) ---
+# Cron fires every 5 min around the clock; the Python scheduler decides
+# whether to actually refresh based on the user's 7×24 activity calendar
+# and the configured interval. Hard-coding hours here would override the
+# UI calendar, so we don't.
+CRON_REFRESH='*/5 * * * * /opt/photopainter/refresh.sh >> /var/log/photopainter/cron.log 2>&1'
 CRON_PURGE='0 0 * * * cd /opt/photopainter && /usr/bin/python3 -m photopainter --purge-cache >> /var/log/photopainter/cron.log 2>&1'
 CRON_BOOT='@reboot sleep 30 && /opt/photopainter/refresh.sh --ignore-schedule >> /var/log/photopainter/cron.log 2>&1'
 (sudo -u "$USER_NAME" crontab -l 2>/dev/null \
@@ -93,11 +100,11 @@ CRON_BOOT='@reboot sleep 30 && /opt/photopainter/refresh.sh --ignore-schedule >>
  echo "$CRON_REFRESH" ; echo "$CRON_PURGE" ; echo "$CRON_BOOT") \
     | sudo -u "$USER_NAME" crontab -
 
-# --- 9. logrotate ---
+# --- 9. logrotate (daily, 14-day retention — events.log can grow on busy days) ---
 cat > /etc/logrotate.d/photopainter <<EOF
 /var/log/photopainter/*.log {
-    weekly
-    rotate 8
+    daily
+    rotate 14
     compress
     delaycompress
     missingok
@@ -106,10 +113,18 @@ cat > /etc/logrotate.d/photopainter <<EOF
 }
 EOF
 
-# --- 10. Allow gunicorn to bind on port 80 without root ---
-# (already in the systemd unit via AmbientCapabilities)
+# --- 10. Allow gunicorn (running as $USER_NAME) to call /sbin/shutdown
+#         without a password, so the Reboot / Shutdown buttons work.
+#         Scoped narrowly to just that one binary. ---
+cat > /etc/sudoers.d/010-photopainter-shutdown <<EOF
+$USER_NAME ALL=(root) NOPASSWD: /usr/sbin/shutdown, /sbin/shutdown
+EOF
+chmod 0440 /etc/sudoers.d/010-photopainter-shutdown
+visudo -c -f /etc/sudoers.d/010-photopainter-shutdown >/dev/null
 
-# --- 11. Start ---
+# --- 11. gunicorn binds on port 80 via AmbientCapabilities (in the unit) ---
+
+# --- 12. Start ---
 systemctl start photopainter-web.service
 sleep 2
 
