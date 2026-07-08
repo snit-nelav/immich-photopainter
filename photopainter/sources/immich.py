@@ -41,19 +41,28 @@ class ImmichSource:
         self._session.headers["x-api-key"] = api_key
 
     def list_assets(self) -> list[Asset]:
-        payload = self._retry(self._fetch_album)
         out: list[Asset] = []
-        for a in payload.get("assets", []):
-            if a.get("type") != "IMAGE":
-                continue
-            # Prefer the EXIF "shot at" date; fall back to the file creation date.
-            date_taken = (a.get("exifInfo") or {}).get("dateTimeOriginal") or a.get("fileCreatedAt")
-            out.append(Asset(
-                id=a["id"],
-                type="IMAGE",
-                filename=a.get("originalFileName", ""),
-                date_taken=date_taken,
-            ))
+        # Immich v3 dropped the embedded `assets` array from GET /api/albums/{id}
+        # (it only returns metadata now), so we enumerate the album's assets via
+        # the paginated metadata-search endpoint instead.
+        page = 1
+        while page:
+            payload = self._retry(lambda p=page: self._fetch_album_page(p))
+            assets = payload.get("assets", {})
+            for a in assets.get("items", []):
+                if a.get("type") != "IMAGE":
+                    continue
+                # Prefer the EXIF "shot at" date; fall back to the file creation date.
+                date_taken = (a.get("exifInfo") or {}).get("dateTimeOriginal") or a.get("fileCreatedAt")
+                out.append(Asset(
+                    id=a["id"],
+                    type="IMAGE",
+                    filename=a.get("originalFileName", ""),
+                    date_taken=date_taken,
+                ))
+            # `nextPage` is the next page number as a string, or null when done.
+            next_page = assets.get("nextPage")
+            page = int(next_page) if next_page else 0
         logger.info("Immich: %d IMAGE assets in album", len(out))
         return out
 
@@ -74,11 +83,12 @@ class ImmichSource:
         log_event("ERROR", "immich_giveup", error=str(last_exc)[:200], attempts=attempts)
         raise ImmichError(f"giving up after {attempts} attempts: {last_exc}")
 
-    def _fetch_album(self) -> dict[str, Any]:
-        url = f"{self.base_url}/api/albums/{self.album_id}"
-        r = self._session.get(url, timeout=self.timeout)
+    def _fetch_album_page(self, page: int) -> dict[str, Any]:
+        url = f"{self.base_url}/api/search/metadata"
+        body = {"albumIds": [self.album_id], "withExif": True, "page": page}
+        r = self._session.post(url, json=body, timeout=self.timeout)
         if r.status_code != 200:
-            raise ImmichError(f"GET {url} -> {r.status_code}: {r.text[:200]}")
+            raise ImmichError(f"POST {url} (page {page}) -> {r.status_code}: {r.text[:200]}")
         return r.json()
 
     def _fetch_original(self, asset_id: str) -> bytes:

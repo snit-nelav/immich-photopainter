@@ -43,7 +43,7 @@ Everything — album, refresh frequency, orientation, display mode, language —
 | 🥧 | **Raspberry Pi Zero 2 W** (64-bit, 512 MB RAM) |
 | 💾 | **microSD card ≥ 8 GB** from a real brand (SanDisk, Samsung, Kingston, Lexar) |
 | 🔌 | A **USB-C charger** (a phone charger works) |
-| 🏠 | A self-hosted **Immich** server reachable on your LAN — *optional*, you can also just drag-and-drop photos into the Local tab |
+| 🏠 | A self-hosted **Immich** server reachable on your LAN (both the **v2.x** and **v3.x** lines are supported) — *optional*, you can also just drag-and-drop photos into the Local tab |
 | 💻 | A computer with **Raspberry Pi Imager** installed |
 
 ---
@@ -97,6 +97,8 @@ Open **`http://<your-host>.local/`** (or `http://<pi-ip>/`) on any device on you
 
    - **Local** (default tab) — a drag-and-drop area where you drop photos (JPG / PNG / WEBP, max 50 MB each, auto-resized to fit the frame). The library shows as a scrollable 4-column grid; click thumbnails to multi-select, then use **🗑 Delete** to remove them or **⬇ Download** to grab a ZIP of the selection. A storage bar in the toolbar shows how full the SD card is (turns red above 85 %). Duplicates (same filename) are skipped, not re-uploaded. No cache to configure — the photos already live on the Pi.
    - **Immich** — fill in the **Immich URL**, the **API key** (built-in tutorial lists the 3 permissions: `album.read`, `asset.read`, `asset.download`), and pick an **Album** from the dropdown that auto-fills after URL + key are saved. At the bottom, a **Local cache** slider (1–10 GB) + **Clear cache** button — kept *per source* so a future Google Photos tab won't mix with this one.
+
+     > 🔌 The album's photos are enumerated through Immich's `POST /api/search/metadata` endpoint, which works on both the **v2.x** and **v3.x** server lines. (Immich v3 removed the older embedded-`assets` album payload, so anything before this endpoint existed is not supported — but every currently maintained Immich release is fine.)
 
 3. 🗓️ **Schedule**
    - **Refresh frequency** — `5 / 10 / 15 / 20 / 30 / 45 / 60 min`.
