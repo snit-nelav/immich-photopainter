@@ -38,14 +38,20 @@ apt-get install -y \
     python3-pil python3-numpy python3-pydantic python3-spidev \
     python3-gpiozero python3-yaml python3-requests python3-rpi-lgpio \
     python3-flask gunicorn python3-cairosvg \
-    git logrotate
+    git logrotate cron
 
 # --- 3. Waveshare e-Paper lib + PWR_PIN patch ---
 EPAPER_DIR=/opt/e-Paper
 if [[ ! -d "$EPAPER_DIR" ]]; then
-    git clone --depth 1 https://github.com/waveshareteam/e-Paper.git "$EPAPER_DIR"
-    rm -rf "$EPAPER_DIR/Arduino" "$EPAPER_DIR/Arduino_R4" \
-           "$EPAPER_DIR/STM32" "$EPAPER_DIR/E-paper_Separate_Program" "$EPAPER_DIR/.git" || true
+    # Clone into a temp dir and rename at the end: an interrupted clone (power
+    # glitch, reboot) must not leave a half-populated $EPAPER_DIR that the
+    # `-d` check above would then skip forever.
+    EPAPER_TMP="${EPAPER_DIR}.partial"
+    rm -rf "$EPAPER_TMP"
+    git clone --depth 1 https://github.com/waveshareteam/e-Paper.git "$EPAPER_TMP"
+    rm -rf "$EPAPER_TMP/Arduino" "$EPAPER_TMP/Arduino_R4" \
+           "$EPAPER_TMP/STM32" "$EPAPER_TMP/E-paper_Separate_Program" "$EPAPER_TMP/.git" || true
+    mv "$EPAPER_TMP" "$EPAPER_DIR"
 fi
 # PhotoPainter ACCE uses GPIO 27 for PWR, the upstream lib defaults to GPIO 18.
 sed -i 's/PWR_PIN  = 18/PWR_PIN  = 27/g' \
@@ -96,8 +102,10 @@ systemctl enable photopainter-web.service
 CRON_REFRESH='*/5 * * * * /opt/photopainter/refresh.sh >> /var/log/photopainter/cron.log 2>&1'
 CRON_PURGE='0 0 * * * cd /opt/photopainter && /usr/bin/python3 -m photopainter --purge-cache >> /var/log/photopainter/cron.log 2>&1'
 CRON_BOOT='@reboot sleep 30 && /opt/photopainter/refresh.sh --ignore-schedule >> /var/log/photopainter/cron.log 2>&1'
-(sudo -u "$USER_NAME" crontab -l 2>/dev/null \
-    | grep -vE 'photopainter/refresh.sh|--purge-cache' ;
+# `crontab -l` fails when no crontab exists and `grep -v` exits 1 when it
+# outputs nothing (fresh Pi): both must be tolerated under `set -e -o pipefail`.
+({ sudo -u "$USER_NAME" crontab -l 2>/dev/null || true; } \
+    | grep -vE 'photopainter/refresh.sh|--purge-cache' || true ;
  echo "$CRON_REFRESH" ; echo "$CRON_PURGE" ; echo "$CRON_BOOT") \
     | sudo -u "$USER_NAME" crontab -
 

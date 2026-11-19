@@ -104,7 +104,7 @@ Open **`http://<your-host>.local/`** (or `http://<pi-ip>/`) on any device on you
    - **Refresh frequency** — `5 / 10 / 15 / 20 / 30 / 45 / 60 min`.
    - **Activity calendar** — 7×24 grid (Mon–Sun × 0h–23h). Click a cell to toggle it. Click a day label to flip the whole row, click an hour label to flip the whole column. Presets: `All on` / `All off`.
 
-4. 📐 **Layout**
+4. 📐 **Frame & layout**
    - **Frame orientation** (`0° / 90° / 180° / 270°`) — match the way you hang it.
    - **Display mode** for photos that match the frame's orientation **and** for those that don't (`fill`, `square`, or `original`), plus the **bands color** (white / black) for square / original.
 
